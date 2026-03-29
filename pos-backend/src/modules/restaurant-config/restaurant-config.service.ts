@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ClsService } from 'nestjs-cls';
 
 export interface UpdateRestaurantConfigDto {
   name?: string;
@@ -12,27 +13,20 @@ export interface UpdateRestaurantConfigDto {
 
 @Injectable()
 export class RestaurantConfigService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private cls: ClsService) {}
 
-  /**
-   * Gets the singleton config record. Creates it with defaults if it doesn't exist.
-   */
   async getConfig() {
-    return this.prisma.restaurantConfig.upsert({
-      where: { id: 'default' },
-      update: {},
-      create: { id: 'default', name: 'Mi Restaurante' },
-    });
+    const restaurantId = this.cls.get('restaurantId');
+    const res = await this.prisma.restaurant.findUnique({ where: { id: restaurantId } });
+    if (!res) throw new NotFoundException('Configuración no disponible');
+    return res;
   }
 
-  /**
-   * Partially updates the singleton config record.
-   */
   async updateConfig(dto: UpdateRestaurantConfigDto) {
-    return this.prisma.restaurantConfig.upsert({
-      where: { id: 'default' },
-      update: dto,
-      create: { id: 'default', name: dto.name ?? 'Mi Restaurante', ...dto },
+    const res = await this.getConfig();
+    return this.prisma.restaurant.update({
+      where: { id: res.id },
+      data: dto as any,
     });
   }
 }

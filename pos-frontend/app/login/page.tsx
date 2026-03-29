@@ -26,8 +26,13 @@ export default function LoginPage() {
 
       if (response.ok) {
         localStorage.setItem('pos_token', data.access_token);
-        toast.success('¡Bienvenido a Xpos Huanchaco!');
-        router.push('/'); // Te manda al Plano de Sala
+        localStorage.setItem('pos_user', JSON.stringify(data.user)); // { id, name, role, allowedViews }
+        toast.success(`¡Bienvenido, ${data.user.name}!`);
+        if (data.user.role === 'SUPER_ADMIN') {
+          router.push('/superadmin');
+        } else {
+          router.push('/');
+        }
       } else {
         toast.error(data.message || 'Credenciales incorrectas');
       }

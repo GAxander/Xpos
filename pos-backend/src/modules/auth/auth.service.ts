@@ -17,37 +17,61 @@ export class AuthService {
     const userExists = await this.prisma.user.findUnique({ where: { email: data.email } });
     if (userExists) throw new BadRequestException('El correo ya está registrado');
 
-    // 2. Encriptamos la contraseña (10 rondas de "salting" es el estándar)
+    // 2. Encriptamos la contraseña
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    // 3. Guardamos el usuario
+    // 3. El primer usuario del sistema recibe rol SUPER_ADMIN automáticamente
+    const userCount = await this.prisma.user.count();
+    const role = userCount === 0 ? 'SUPER_ADMIN' : 'CASHIER';
+
+    // 4. Guardamos el usuario
     const user = await this.prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
         password: hashedPassword,
+        role: role as any,
       }
     });
 
-    // 4. Retornamos el usuario pero SIN la contraseña por seguridad
+    // 5. Retornamos el usuario SIN la contraseña
     const { password, ...result } = user;
     return result;
   }
 
   async login(data: LoginDto) {
     // 1. Buscamos al usuario
-    const user = await this.prisma.user.findUnique({ where: { email: data.email } });
+    const user = await this.prisma.user.findUnique({ 
+      where: { email: data.email },
+      include: { restaurant: true } 
+    });
     if (!user) throw new UnauthorizedException('Credenciales inválidas');
 
-    // 2. Comparamos la contraseña en texto plano con el hash de la base de datos
+    // 1.5 Verificar que el usuario esté activo
+    if (!user.isActive) throw new UnauthorizedException('Usuario desactivado. Contacte al administrador.');
+    
+    // 1.6 Verificar que el restaurante esté activo y con suscripción vigente
+    if (user.restaurantId && user.restaurant) {
+      if (!user.restaurant.isActive) {
+        throw new UnauthorizedException('El restaurante se encuentra suspendido. Contacte a soporte.');
+      }
+      if (new Date() > new Date(user.restaurant.subscriptionEndDate)) {
+        throw new UnauthorizedException('Suscripción expirada. Por favor, contacte a soporte para renovar.');
+      }
+    }
+
+    // 2. Comparamos la contraseña
     const isPasswordValid = await bcrypt.compare(data.password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('Credenciales inválidas');
 
-    // 3. Si todo está bien, generamos el JWT (El pase VIP)
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    // 3. ADMIN / SUPER_ADMIN siempre tienen acceso total; los demás usan su lista
+    const allowedViews = (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') ? ['*'] : user.allowedViews;
+
+    // 4. Generamos el JWT con los permisos y el tenant (restaurantId)
+    const payload = { sub: user.id, email: user.email, role: user.role, allowedViews, restaurantId: user.restaurantId };
     return {
       access_token: this.jwtService.sign(payload),
-      user: { id: user.id, name: user.name, role: user.role }
+      user: { id: user.id, name: user.name, role: user.role, allowedViews, restaurantId: user.restaurantId }
     };
   }
 }

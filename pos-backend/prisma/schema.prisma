@@ -41,6 +41,7 @@ enum PaymentMethod {
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   CASHIER
   WAITER
@@ -51,13 +52,16 @@ enum Role {
 // ==========================================
 
 model Zone {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  isActive  Boolean  @default(true) @map("is_active")
-  tables    Table[]
+  id           String      @id @default(uuid()) @db.Uuid
+  restaurantId String?     @map("restaurant_id") @db.Uuid
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  name         String
+  isActive     Boolean     @default(true) @map("is_active")
+  tables       Table[]
+  
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
 
   @@map("zones")
 }
@@ -86,6 +90,9 @@ model Table {
 
 model Category {
   id           String       @id @default(uuid()) @db.Uuid
+  restaurantId String?      @map("restaurant_id") @db.Uuid
+  restaurant   Restaurant?  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
   name         String
   printerRoute PrinterRoute @map("printer_route")
   products     Product[]
@@ -95,6 +102,9 @@ model Category {
 
 model Product {
   id          String       @id @default(uuid()) @db.Uuid
+  restaurantId String?      @map("restaurant_id") @db.Uuid
+  restaurant   Restaurant?  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
   name        String
   price       Float
   stock       Int          @default(0)
@@ -132,6 +142,9 @@ model Product {
 
 model InventoryItem {
   id             String       @id @default(uuid()) @db.Uuid
+  restaurantId   String?      @map("restaurant_id") @db.Uuid
+  restaurant     Restaurant?  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
   name           String
   stockQuantity  Decimal      @default(0) @map("stock_quantity") @db.Decimal(10, 3)
   unitOfMeasure  String       @map("unit_of_measure") 
@@ -157,7 +170,10 @@ model RecipeItem {
 
 model KitchenStation {
   id          String    @id @default(uuid()) @db.Uuid
-  name        String    @unique
+  restaurantId String?      @map("restaurant_id") @db.Uuid
+  restaurant   Restaurant?  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  name        String    
   colorHex    String?   @map("color_hex")
   printerName String?   @map("printer_name") // Nombre/IP de la impresora asignada
   products    Product[]
@@ -165,6 +181,7 @@ model KitchenStation {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
+  @@unique([restaurantId, name])
   @@map("kitchen_stations")
 }
 
@@ -205,6 +222,9 @@ model ModifierOption {
 
 model Order {
   id           String      @id @default(uuid()) @db.Uuid
+  restaurantId String?     @map("restaurant_id") @db.Uuid
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
   tableId      String?     @map("table_id") @db.Uuid
   table        Table?      @relation(fields: [tableId], references: [id])
   previousTableName String?  @map("previous_table_name")
@@ -220,6 +240,9 @@ model Order {
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
+  @@index([status])
+  @@index([updatedAt])
+  @@index([createdAt])
   @@map("orders")
 }
 
@@ -244,6 +267,8 @@ model OrderItem {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@index([orderId])
+  @@index([status])
   @@map("order_items")
 }
 
@@ -268,6 +293,7 @@ model StockMovement {
   
   createdAt   DateTime           @default(now()) @map("created_at")
 
+  @@index([createdAt])
   @@map("stock_movements")
 }
 
@@ -290,13 +316,17 @@ model Payment {
 // ==========================================
 
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  email     String   @unique
-  password  String   // Aquí guardaremos el hash de bcrypt, no la clave real
-  role      Role     @default(CASHIER)
-  isActive  Boolean  @default(true) @map("is_active")
-  
+  id           String   @id @default(uuid()) @db.Uuid
+  restaurantId String?  @map("restaurant_id") @db.Uuid
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  name         String
+  email        String   @unique
+  password     String
+  role         Role     @default(CASHIER)
+  isActive     Boolean  @default(true) @map("is_active")
+  allowedViews String[] @default([]) @map("allowed_views")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -309,6 +339,9 @@ model User {
 
 model CashShift {
   id             String        @id @default(uuid()) @db.Uuid
+  restaurantId   String?       @map("restaurant_id") @db.Uuid
+  restaurant     Restaurant?   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
   // El usuario que abrió la caja (opcional, pero recomendado)
   userId         String?       @map("user_id") @db.Uuid
   
@@ -342,15 +375,42 @@ model CashExpense {
 // CONFIGURACIÓN DEL RESTAURANTE (SINGLETON)
 // ==========================================
 
-model RestaurantConfig {
-  id        String   @id @default("default")
+enum PlanType {
+  BASIC
+  PRO
+  PREMIUM
+}
+
+model Restaurant {
+  id        String   @id @default(uuid()) @db.Uuid
   name      String   @default("Mi Restaurante")
+  slug      String   @unique @default(uuid())
+  isActive  Boolean  @default(true) @map("is_active")
+  
   slogan    String?
   address   String?
   phone     String?
   ruc       String?
   logoUrl   String?  @map("logo_url") @db.Text  // base64 Data URL
+  
+  // Custom SaaS fields
+  planType            PlanType @default(BASIC) @map("plan_type")
+  subscriptionEndDate DateTime @default(now()) @map("subscription_end_date")
+  ownerName           String?  @map("owner_name")
+  ownerPhone          String?  @map("owner_phone")
+  internalNotes       String?  @map("internal_notes")
+  
+  users            User[]
+  zones            Zone[]
+  categories       Category[]
+  products         Product[]
+  inventoryItems   InventoryItem[]
+  kitchenStations  KitchenStation[]
+  orders           Order[]
+  cashShifts       CashShift[]
+
+  createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("restaurant_config")
+  @@map("restaurants")
 }

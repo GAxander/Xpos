@@ -7,8 +7,9 @@ import type { UpdateRestaurantConfigDto } from './restaurant-config.service';
 export class RestaurantConfigController {
   constructor(private readonly service: RestaurantConfigService) {}
 
-  /** GET /api/v1/restaurant-config — public-ish, used by sidebar */
+  /** GET /api/v1/restaurant-config */
   @Get()
+  @UseGuards(AuthGuard('jwt'))
   getConfig() {
     return this.service.getConfig();
   }

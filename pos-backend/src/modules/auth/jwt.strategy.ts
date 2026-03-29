@@ -1,10 +1,11 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(private cls: ClsService) {
     super({
       // Le decimos que busque el token en la cabecera "Authorization: Bearer <token>"
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -15,6 +16,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   // Si el token es válido, NestJS pone esta información en "req.user"
   async validate(payload: any) {
-    return { userId: payload.sub, email: payload.email, role: payload.role };
+    if (payload.restaurantId) {
+      this.cls.set('restaurantId', payload.restaurantId);
+    }
+    return { userId: payload.sub, email: payload.email, role: payload.role, restaurantId: payload.restaurantId };
   }
 }

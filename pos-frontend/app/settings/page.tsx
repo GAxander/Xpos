@@ -52,7 +52,8 @@ export default function SettingsPage() {
     const token = localStorage.getItem('pos_token');
     try {
       const res = await fetch('http://localhost:3000/api/v1/restaurant-config', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        cache: 'no-store'
       });
       if (res.ok) setConfig(await res.json());
     } catch { /* silently ignore */ }
