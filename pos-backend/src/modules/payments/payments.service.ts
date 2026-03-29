@@ -9,7 +9,17 @@ export class PaymentsService {
   async processPayment(data: CreatePaymentDto) {
     const order = await this.prisma.order.findUnique({
       where: { id: data.orderId },
-      include: { payments: true },
+      include: { 
+        payments: true,
+        items: {
+          where: { status: 'ACTIVE' },
+          include: {
+            product: {
+              include: { recipeItems: true }
+            }
+          }
+        }
+      },
     });
 
     if (!order) throw new BadRequestException('La orden no existe');
@@ -24,55 +34,59 @@ export class PaymentsService {
       },
     });
 
+    // Marcar items como pagados si vienen en el request (Cuentas separadas)
+    if (data.itemIds && data.itemIds.length > 0) {
+      await this.prisma.orderItem.updateMany({
+        where: { id: { in: data.itemIds } },
+        data: { isPaid: true }
+      });
+    }
+
     const totalPaid = order.payments.reduce((sum, p) => sum + Number(p.amount), 0) + data.amount;
 
     if (totalPaid >= Number(order.totalAmount)) {
       // 1. Cerramos la orden y liberamos la mesa
-      await this.prisma.order.update({
-        where: { id: order.id },
-        data: { status: 'CLOSED' },
-      });
-
-      if (order.tableId) {
-        await this.prisma.table.update({
-          where: { id: order.tableId },
-          data: { status: 'FREE' },
-        });
-      }
+      await Promise.all([
+        this.prisma.order.update({ where: { id: order.id }, data: { status: 'CLOSED' } }),
+        ...(order.tableId ? [
+          this.prisma.table.update({ where: { id: order.tableId }, data: { status: 'FREE' } })
+        ] : [])
+      ]);
 
       // ==========================================
-      // 2. EL MOTOR DE INVENTARIO (AHORA SÍ, PERFECTO)
+      // 2. MOTOR DE INVENTARIO: Descuenta stock del producto Y materias primas
       // ==========================================
-      
-      // Obtenemos los detalles usando "items" (el nombre real en tu base de datos)
-      const orderDetails = await this.prisma.order.findUnique({
-        where: { id: order.id },
-        include: {
-          items: { // <-- ¡Corregido aquí!
-            include: {
-              product: {
-                include: {
-                  recipeItems: true,
-                }
-              }
-            }
-          }
-        },
-      });
+      for (const item of order.items) {
+        if (!item.product) continue;
 
-      if (orderDetails && orderDetails.items) {
-        for (const item of orderDetails.items) { // <-- ¡Y corregido aquí!
-          if (item.product && item.product.recipeItems) {
-            for (const recipeItem of item.product.recipeItems) {
-              const totalDeducted = item.quantity * Number(recipeItem.quantityRequired);
-              
-              await this.prisma.inventoryItem.update({
-                where: { id: recipeItem.inventoryItemId },
-                data: {
-                  stockQuantity: { decrement: totalDeducted }
-                }
-              });
+        const stockBefore = item.product.stock;
+        const stockAfter = stockBefore - item.quantity;
+
+        // 2a. Descontar el stock del producto terminado + Registrar movimiento SALE
+        await this.prisma.$transaction([
+          this.prisma.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: item.quantity } }
+          }),
+          this.prisma.stockMovement.create({
+            data: {
+              productId: item.productId,
+              type: 'SALE',
+              delta: -item.quantity,
+              stockBefore,
+              stockAfter,
+              reason: `Venta (Orden #${order.id.slice(0, 8)})`
             }
+          })
+        ]);
+
+        // 2b. Descontar materias primas (ingredientes de receta)
+        if (item.product.recipeItems && item.product.recipeItems.length > 0) {
+          for (const recipeItem of item.product.recipeItems) {
+            await this.prisma.inventoryItem.update({
+              where: { id: recipeItem.inventoryItemId },
+              data: { stockQuantity: { decrement: item.quantity * Number(recipeItem.quantityRequired) } }
+            });
           }
         }
       }
@@ -88,16 +102,61 @@ export class PaymentsService {
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // 1. Agrupar pagos
-    const paymentsGrouped = await this.prisma.payment.groupBy({
-      by: ['paymentMethod'],
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } },
-      _sum: { amount: true, tipAmount: true },
-    });
-
-    const closedOrdersCount = await this.prisma.order.count({
-      where: { status: 'CLOSED', updatedAt: { gte: startOfDay, lte: endOfDay } },
-    });
+    // ==========================================
+    // EJECUCIÓN CONCURRENTE (Optimización de Velocidad)
+    // ==========================================
+    const [
+      paymentsGrouped,
+      closedOrdersCount,
+      paymentsWithTips,
+      activeShift,
+      closedOrders
+    ] = await Promise.all([
+      // 1. Agrupar pagos
+      this.prisma.payment.groupBy({
+        by: ['paymentMethod'],
+        where: { createdAt: { gte: startOfDay, lte: endOfDay } },
+        _sum: { amount: true, tipAmount: true },
+      }),
+      // 2. Conteo de órdenes cerradas
+      this.prisma.order.count({
+        where: { status: 'CLOSED', updatedAt: { gte: startOfDay, lte: endOfDay } },
+      }),
+      // 3. Detalle de Propinas
+      this.prisma.payment.findMany({
+        where: {
+          createdAt: { gte: startOfDay, lte: endOfDay },
+          tipAmount: { gt: 0 }, 
+        },
+        include: {
+          order: {
+            include: { table: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      // 4. Fondo de caja y gastos activos
+      this.prisma.cashShift.findFirst({
+        where: { 
+          status: 'OPEN',
+          openedAt: { gte: startOfDay, lte: endOfDay }
+        },
+        include: { expenses: true }
+      }),
+      // 5. Detalle de todas las órdenes cerradas
+      this.prisma.order.findMany({
+        where: {
+          status: 'CLOSED',
+          updatedAt: { gte: startOfDay, lte: endOfDay }
+        },
+        include: {
+          table: true,
+          payments: true,
+          items: { include: { product: true } }
+        },
+        orderBy: { updatedAt: 'desc' }
+      })
+    ]);
 
     let totalIncome = 0;
     let totalTips = 0;
@@ -108,51 +167,15 @@ export class PaymentsService {
       const tips = Number(group._sum.tipAmount || 0);
       breakdown[group.paymentMethod as keyof typeof breakdown] = amount;
       totalIncome += amount;
-      totalTips += tips; // Aquí ya sumamos el total de propinas del día
+      totalTips += tips;
     });
 
-    // ==========================================
-    // NUEVO: OBTENER DETALLE DE PROPINAS
-    // ==========================================
-    // Buscamos los pagos específicos de hoy que tengan propina > 0
-    const paymentsWithTips = await this.prisma.payment.findMany({
-      where: {
-        createdAt: { gte: startOfDay, lte: endOfDay },
-        tipAmount: { gt: 0 }, 
-      },
-      include: {
-        order: {
-          include: {
-            table: true, // Hacemos el JOIN con la mesa para sacar el número
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc' // Las propinas más recientes primero
-      }
-    });
-
-    // Mapeamos los datos al formato exacto que espera tu Modal del Frontend
     const tipsDetail = paymentsWithTips.map(payment => ({
       id: payment.id,
-      // Si la orden tiene mesa, mostramos el número. Si fue para llevar (null), lo indicamos.
       table: payment.order?.table ? `Mesa ${payment.order.table.number}` : 'Mostrador / Para llevar',
       amount: Number(payment.tipAmount),
       method: payment.paymentMethod,
     }));
-
-
-    // ==========================================
-    // GESTIÓN DEL FONDO DE CAJA Y GASTOS 
-    // ==========================================
-    // (Asegúrate de haber agregado CashShift y CashExpense a tu schema.prisma)
-    const activeShift = await this.prisma.cashShift.findFirst({
-      where: { 
-        status: 'OPEN',
-        openedAt: { gte: startOfDay, lte: endOfDay }
-      },
-      include: { expenses: true }
-    });
 
     const openingCash = activeShift ? Number(activeShift.openingAmount) : 0;
     
@@ -161,27 +184,6 @@ export class PaymentsService {
     ) || 0;
 
     const expectedCashInDrawer = openingCash + breakdown.CASH - totalExpenses;
-
-    // ==========================================
-    // NUEVO: OBTENER DETALLE DE ÓRDENES CERRADAS
-    // ==========================================
-    // ==========================================
-    // OBTENER DETALLE DE ÓRDENES CERRADAS (Ahora incluye ítems)
-    // ==========================================
-    const closedOrders = await this.prisma.order.findMany({
-      where: {
-        status: 'CLOSED',
-        updatedAt: { gte: startOfDay, lte: endOfDay }
-      },
-      include: {
-        table: true,
-        payments: true,
-        items: {
-          include: { product: true } // <-- NUEVO: Incluimos los productos de la orden
-        }
-      },
-      orderBy: { updatedAt: 'desc' }
-    });
 
     const ordersDetail = closedOrders.map(order => {
       const methods = order.payments.map(p => p.paymentMethod);
@@ -198,7 +200,6 @@ export class PaymentsService {
           method: p.paymentMethod,
           amount: Number(p.amount)
         })),
-        // NUEVO: Mapeamos los platos para que el frontend los pueda contar
         items: order.items.map(i => ({
           productId: i.product?.id || 'desconocido',
           name: i.product?.name || 'Producto eliminado',
@@ -206,24 +207,14 @@ export class PaymentsService {
         }))
       };
     });
-    const ordersWithItems = await this.prisma.order.findMany({
-      where: {
-        status: 'CLOSED',
-        updatedAt: { gte: startOfDay, lte: endOfDay }
-      },
-      include: {
-        items: {
-          include: {
-            product: true // Traemos la info del producto para saber el nombre
-          }
-        }
-      }
-    });
 
-    // Agrupamos y sumamos las cantidades por ID de producto
+    // ==========================================
+    // CÁLCULO DE PRODUCTOS MÁS VENDIDOS
+    // (Utilizando closedOrders en lugar de volver a consultar a la DB)
+    // ==========================================
     const productSales: Record<string, { id: string; name: string; quantity: number }> = {};
 
-    ordersWithItems.forEach(order => {
+    closedOrders.forEach(order => {
       order.items.forEach(item => {
         if (item.product) {
           const productId = item.product.id;
@@ -239,7 +230,6 @@ export class PaymentsService {
       });
     });
 
-    // Convertimos el objeto en un Array y lo ordenamos (los más vendidos primero)
     const soldProducts = Object.values(productSales).sort((a, b) => b.quantity - a.quantity);
 
     // ==========================================

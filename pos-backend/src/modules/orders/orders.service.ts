@@ -190,6 +190,68 @@ export class OrdersService {
     });
   }
 
+  async changeTable(orderId: string, newTableId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { table: true }
+    });
+
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+    if (order.status !== 'OPEN') throw new BadRequestException(`Order ${orderId} is not open`);
+
+    const newTable = await this.prisma.table.findUnique({
+      where: { id: newTableId }
+    });
+
+    if (!newTable) throw new NotFoundException(`Table ${newTableId} not found`);
+    if (newTable.status !== 'FREE' && newTable.id !== order.tableId) {
+      throw new BadRequestException(`Table ${newTableId} is not free`);
+    }
+
+    if (newTable.id === order.tableId) {
+      return order; // No change needed
+    }
+
+    // Determine old table name
+    const oldTableName = order.table ? `MESA ${order.table.number}` : 'MOSTRADOR';
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Update Order: tableId, previousTableName
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          tableId: newTableId,
+          previousTableName: oldTableName
+        }
+      });
+
+      // 2. Liberate old table if it has no other OPEN orders
+      if (order.tableId) {
+        const otherOrders = await tx.order.count({
+          where: {
+            tableId: order.tableId,
+            status: 'OPEN',
+            id: { not: orderId }
+          }
+        });
+        if (otherOrders === 0) {
+          await tx.table.update({
+             where: { id: order.tableId },
+             data: { status: 'FREE' }
+          });
+        }
+      }
+
+      // 3. Occupy new table
+      await tx.table.update({
+         where: { id: newTableId },
+         data: { status: 'OCCUPIED' }
+      });
+
+      return updatedOrder;
+    });
+  }
+
   async removeOrderItem(orderId: string, itemId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },

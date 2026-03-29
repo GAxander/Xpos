@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, Plus, Search, Edit, Trash2, X, Loader2 } from 'lucide-react';
+import { ChefHat, Plus, Search, Edit, Trash2, X, Loader2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface KitchenStation {
   id: string;
   name: string;
   colorHex: string;
+  printerName?: string;
 }
 
 const PRESET_COLORS = [
@@ -31,8 +32,13 @@ export default function KitchenStationsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<KitchenStation>({
-    id: '', name: '', colorHex: '#f1f5f9'
+    id: '', name: '', colorHex: '#f1f5f9', printerName: ''
   });
+
+  // Impresoras del agente local
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+  const [loadingPrinters, setLoadingPrinters] = useState(false);
+  const [agentOnline, setAgentOnline] = useState<boolean | null>(null);
 
   const fetchStations = async () => {
     const token = localStorage.getItem('pos_token');
@@ -56,6 +62,24 @@ export default function KitchenStationsPage() {
     fetchStations();
   }, [router]);
 
+  const fetchPrinters = async () => {
+    setLoadingPrinters(true);
+    try {
+      const res = await fetch('http://localhost:4001/printers', { signal: AbortSignal.timeout(2000) });
+      if (res.ok) {
+        const data = await res.json();
+        setAvailablePrinters(data.printers || []);
+        setAgentOnline(true);
+      } else {
+        setAgentOnline(false);
+      }
+    } catch {
+      setAgentOnline(false);
+      setAvailablePrinters([]);
+    }
+    setLoadingPrinters(false);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -72,6 +96,7 @@ export default function KitchenStationsPage() {
     const bodyData = {
       name: formData.name,
       colorHex: formData.colorHex,
+      printerName: formData.printerName || null,
     };
 
     try {
@@ -123,9 +148,10 @@ export default function KitchenStationsPage() {
     if (station) {
       setFormData(station);
     } else {
-      setFormData({ id: '', name: '', colorHex: '#f1f5f9' });
+      setFormData({ id: '', name: '', colorHex: '#f1f5f9', printerName: '' });
     }
     setIsModalOpen(true);
+    fetchPrinters(); // Obtener impresoras al abrir el modal
   };
 
   const closeModal = () => setIsModalOpen(false);
@@ -181,6 +207,7 @@ export default function KitchenStationsPage() {
               <tr className="bg-slate-50/50 border-b border-slate-100 text-xs uppercase tracking-widest text-slate-400 font-bold">
                 <th className="p-5">Área de Preparación</th>
                 <th className="p-5">Color Identificador</th>
+                <th className="p-5">Impresora Asignada</th>
                 <th className="p-5 text-center">Acciones</th>
               </tr>
             </thead>
@@ -197,6 +224,16 @@ export default function KitchenStationsPage() {
                         <div className="w-6 h-6 rounded-full shadow-sm border border-black/10" style={{ backgroundColor: station.colorHex }}></div>
                         <span className="text-slate-600">{preset ? preset.name : station.colorHex}</span>
                       </div>
+                    </td>
+                    <td className="p-5">
+                      {station.printerName ? (
+                        <div className="flex items-center gap-2">
+                          <Printer className="w-4 h-4 text-slate-400" />
+                          <span className="font-mono text-sm text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg">{station.printerName}</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-sm italic">Sin asignar</span>
+                      )}
                     </td>
                     <td className="p-5 text-center">
                       <div className="flex justify-center gap-2">
@@ -254,6 +291,59 @@ export default function KitchenStationsPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-slate-700 mb-1 block flex items-center gap-2">
+                  <Printer className="w-4 h-4 text-slate-400" /> Impresora Asignada
+                </label>
+
+                {agentOnline === false ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-700">
+                    <p className="font-bold mb-1">⚠️ Agente de impresión no detectado</p>
+                    <p className="text-xs">Inicia el <code className="bg-amber-100 px-1 rounded">pos-print-agent</code> para detectar impresoras automáticamente.</p>
+                    <input
+                      type="text"
+                      value={formData.printerName || ''}
+                      onChange={e => setFormData({...formData, printerName: e.target.value})}
+                      className="w-full mt-2 px-3 py-2 bg-white border border-amber-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-mono text-slate-700 text-sm"
+                      placeholder="Escribe el nombre manualmente..."
+                    />
+                  </div>
+                ) : (
+                  <div className="relative">
+                    {loadingPrinters ? (
+                      <div className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-slate-400 text-sm">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Buscando impresoras...
+                      </div>
+                    ) : (
+                      <select
+                        value={formData.printerName || ''}
+                        onChange={e => setFormData({...formData, printerName: e.target.value})}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none font-mono text-slate-700 appearance-none cursor-pointer"
+                      >
+                        <option value="">— Sin impresora asignada —</option>
+                        {availablePrinters.map(p => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    )}
+                    {!loadingPrinters && (
+                      <button
+                        type="button"
+                        onClick={fetchPrinters}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-orange-50"
+                        title="Refrescar lista de impresoras"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {agentOnline && availablePrinters.length === 0 && !loadingPrinters && (
+                  <p className="text-xs text-slate-400 mt-1.5">No se encontraron impresoras instaladas en este equipo.</p>
+                )}
               </div>
 
               <div className="pt-4">

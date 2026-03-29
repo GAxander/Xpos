@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, Clock, AlertTriangle, ArrowLeft, UtensilsCrossed, XCircle, Undo2, Check } from 'lucide-react';
+import { ChefHat, Clock, AlertTriangle, ArrowLeft, UtensilsCrossed, XCircle, Undo2, Check, ArrowRightLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Interfaces actualizadas para incluir status
@@ -30,6 +30,7 @@ interface KitchenOrder {
   createdAt: string;
   // Asumimos que agregaste status a la orden también en tu DB, ej: 'OPEN', 'CANCELLED'
   status: string; // <-- NUEVO: Status de la orden completa
+  previousTableName?: string | null;
   table: {
     name: string;
     number: number;
@@ -152,6 +153,16 @@ export default function CocinaPage() {
                     playAlertSound();
                   }
                 });
+
+                // 3. Verificar si la mesa ha cambiado
+                if (!oldOrder.previousTableName && newOrder.previousTableName) {
+                  toast(`¡CAMBIO DE MESA!`, {
+                    description: `El pedido que estaba en ${newOrder.previousTableName} se movió a ${tableName}.`,
+                    duration: 12000,
+                    icon: <ArrowRightLeft className="w-5 h-5 text-blue-500" />
+                  });
+                  playAlertSound();
+                }
               }
             }
           });
@@ -383,8 +394,11 @@ export default function CocinaPage() {
                 {/* Cabecera Ticket */}
                 <div className={`p-5 border-b-2 border-dashed mt-1 ${isOrderCanceled ? 'bg-rose-100 border-rose-400' : 'bg-white border-slate-300'}`}>
                   <div className="flex justify-between items-start mb-4">
-                    <h3 className={`text-3xl font-black uppercase tracking-tighter ${isOrderCanceled ? 'text-rose-900 line-through decoration-rose-400' : 'text-slate-800'}`}>
-                      {tableName}
+                    <h3 className={`text-3xl font-black uppercase tracking-tighter flex flex-col ${isOrderCanceled ? 'text-rose-900 line-through decoration-rose-400' : 'text-slate-800'}`}>
+                      {order.previousTableName && (
+                        <span className="text-xl text-slate-400 line-through decoration-slate-400 mb-1 leading-none">{order.previousTableName}</span>
+                      )}
+                      <span>{tableName}</span>
                     </h3>
                     {isOrderCanceled && (
                        <div className="flex items-center gap-1.5 px-3 py-1 bg-rose-600 text-white rounded-lg font-bold text-sm shadow-sm animate-pulse">

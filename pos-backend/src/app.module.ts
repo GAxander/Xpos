@@ -11,6 +11,7 @@ import { PaymentsModule } from './modules/payments/payments.module'; // <-- El n
 import { KitchenStationsModule } from './modules/kitchen-stations/kitchen-stations.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProductsModule } from './api/v1/products/products.module';
+import { RestaurantConfigModule } from './modules/restaurant-config/restaurant-config.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ProductsModule } from './api/v1/products/products.module';
     PaymentsModule, // <-- Registrado aquí para habilitar la ruta POST
     KitchenStationsModule,
     AuthModule, ProductsModule,
+    RestaurantConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, Search, Plus, AlertCircle, CheckCircle2, ArrowUpDown, Filter, Edit, Trash2, X, Loader2 } from 'lucide-react';
+import { Package, Search, Plus, AlertCircle, CheckCircle2, ArrowUpDown, Filter, Edit, Trash2, X, Loader2, PackagePlus, Minus, TrendingDown, TrendingUp, History, ShoppingBag, Wrench, LayoutGrid } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Product {
@@ -56,6 +56,17 @@ export default function InventoryPage() {
   const [formData, setFormData] = useState<Product>({
     id: '', name: '', category: '', categoryId: '', stationId: '', price: 0, stock: 0, minStock: 0, modifierGroups: []
   });
+
+  // Estados para el ajuste rápido de stock
+  const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null);
+  const [stockDelta, setStockDelta] = useState<number>(0);
+  const [adjustReason, setAdjustReason] = useState<string>('');
+  const [isAdjusting, setIsAdjusting] = useState(false);
+
+  // Estados para historial de stock
+  const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
+  const [historyMovements, setHistoryMovements] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // 1. LEER: Obtener productos del backend real
   const fetchProducts = async () => {
@@ -203,6 +214,56 @@ export default function InventoryPage() {
 
   const closeModal = () => setIsModalOpen(false);
 
+  // Ajuste rápido de stock
+  const openStockAdjust = (product: Product) => {
+    setAdjustingProduct(product);
+    setStockDelta(0);
+    setAdjustReason('');
+  };
+
+  const handleStockAdjust = async () => {
+    if (!adjustingProduct || stockDelta === 0) return;
+    setIsAdjusting(true);
+    const token = localStorage.getItem('pos_token');
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/v1/products/${adjustingProduct.id}/stock`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ delta: stockDelta, reason: adjustReason })
+        }
+      );
+      if (response.ok) {
+        const updated = await response.json();
+        setProducts(prev => prev.map(p => p.id === updated.id ? { ...p, stock: updated.stock } : p));
+        toast.success(`Stock de "${adjustingProduct.name}" actualizado: ${stockDelta > 0 ? '+' : ''}${stockDelta} unidades`);
+        setAdjustingProduct(null);
+      } else {
+        toast.error('Error al ajustar el stock');
+      }
+    } catch {
+      toast.error('Error de red');
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
+
+  // Ver historial de movimientos de stock
+  const openHistory = async (product: Product) => {
+    setHistoryProduct(product);
+    setLoadingHistory(true);
+    setHistoryMovements([]);
+    const token = localStorage.getItem('pos_token');
+    try {
+      const res = await fetch(`http://localhost:3000/api/v1/products/${product.id}/stock-history`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setHistoryMovements(await res.json());
+    } catch { /* silently fail */ }
+    setLoadingHistory(false);
+  };
+
   // Cálculos y Filtros
   const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
   const filteredProducts = products.filter(p => 
@@ -230,13 +291,22 @@ export default function InventoryPage() {
             Gestión de Productos y Stock
           </p>
         </div>
-        <button 
-          onClick={() => openModal()}
-          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-emerald-200"
-        >
-          <Plus className="w-5 h-5" />
-          Nuevo Producto
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push('/inventory/kardex')}
+            className="flex items-center gap-2 px-5 py-3 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-2xl font-bold transition-all active:scale-95"
+          >
+            <LayoutGrid className="w-5 h-5" />
+            Kardex
+          </button>
+          <button 
+            onClick={() => openModal()}
+            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-emerald-200"
+          >
+            <Plus className="w-5 h-5" />
+            Nuevo Producto
+          </button>
+        </div>
       </header>
 
       {/* Tabla e Interfaz (Mismo diseño que te gustó) */}
@@ -283,6 +353,22 @@ export default function InventoryPage() {
                     </td>
                     <td className="p-5 text-center">
                       <div className="flex justify-center gap-2">
+                        {/* Botón Historial */}
+                        <button
+                          onClick={() => openHistory(product)}
+                          className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-xl transition-colors"
+                          title="Ver historial de stock"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
+                        {/* Botón Ajustar Stock */}
+                        <button
+                          onClick={() => openStockAdjust(product)}
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                          title="Ajustar stock manualmente"
+                        >
+                          <PackagePlus className="w-4 h-4" />
+                        </button>
                         {/* Botón Editar */}
                         <button onClick={() => openModal(product)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors">
                           <Edit className="w-4 h-4" />
@@ -488,6 +574,183 @@ export default function InventoryPage() {
               </button>
             </div>
             
+          </div>
+        </div>
+      )}
+
+      {/* MODAL HISTORIAL DE STOCK */}
+      {historyProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center shrink-0">
+              <div>
+                <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <History className="w-5 h-5 text-violet-500" /> Historial de Stock
+                </h2>
+                <p className="text-slate-500 text-sm font-medium mt-0.5">{historyProduct.name} — últimos 7 días</p>
+              </div>
+              <button onClick={() => setHistoryProduct(null)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-5">
+              {loadingHistory ? (
+                <div className="flex items-center justify-center h-40">
+                  <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
+                </div>
+              ) : historyMovements.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-40 text-slate-400 gap-2">
+                  <History className="w-10 h-10 text-slate-200" />
+                  <p className="font-medium text-sm">No hay movimientos en los últimos 7 días</p>
+                  <p className="text-xs">Los movimientos aparecerán aquí a partir de ahora</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {historyMovements.map((mov: any) => {
+                    const isSale = mov.type === 'SALE';
+                    const isPositive = mov.delta > 0;
+                    return (
+                      <div key={mov.id} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                        <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${
+                          isSale ? 'bg-orange-50 text-orange-500' : isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'
+                        }`}>
+                          {isSale ? <ShoppingBag className="w-5 h-5" /> : isPositive ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-800 text-sm truncate">{mov.reason || (isSale ? 'Venta' : 'Ajuste manual')}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {new Date(mov.createdAt).toLocaleDateString('es-PE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className={`font-black text-base ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {isPositive ? '+' : ''}{mov.delta}
+                          </p>
+                          <p className="text-xs text-slate-400">{mov.stockBefore} → {mov.stockAfter}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 shrink-0">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500 font-medium">{historyMovements.length} movimientos</span>
+                <span className="font-bold text-slate-700">Stock actual: <span className="text-slate-900">{historyProduct.stock} un.</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL AJUSTE RÁPIDO DE STOCK */}
+      {adjustingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black text-slate-800 leading-none">Ajustar Stock</h2>
+                <p className="text-slate-500 text-sm font-medium mt-0.5 line-clamp-1">{adjustingProduct.name}</p>
+              </div>
+              <button onClick={() => setAdjustingProduct(null)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Stock preview */}
+              <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div className="text-center flex-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Antes</p>
+                  <p className="text-3xl font-black text-slate-400">{adjustingProduct.stock}</p>
+                </div>
+                <div className="text-slate-300 text-2xl font-black">→</div>
+                <div className="text-center flex-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Después</p>
+                  <p className={`text-3xl font-black ${stockDelta > 0 ? 'text-emerald-600' : stockDelta < 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+                    {adjustingProduct.stock + stockDelta}
+                  </p>
+                </div>
+              </div>
+
+              {/* Botones de tipo fácil */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setStockDelta(d => d - 1)}
+                  className="flex items-center justify-center gap-2 py-3 bg-rose-50 border-2 border-rose-200 text-rose-700 rounded-xl font-bold text-sm hover:bg-rose-100 transition-colors"
+                >
+                  <TrendingDown className="w-4 h-4" /> Merma / Baja
+                </button>
+                <button
+                  onClick={() => setStockDelta(d => d + 1)}
+                  className="flex items-center justify-center gap-2 py-3 bg-emerald-50 border-2 border-emerald-200 text-emerald-700 rounded-xl font-bold text-sm hover:bg-emerald-100 transition-colors"
+                >
+                  <TrendingUp className="w-4 h-4" /> Producción / Alta
+                </button>
+              </div>
+
+              {/* Ajuste numérico */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Cantidad exacta a ajustar</label>
+                <div className="flex items-stretch gap-2">
+                  <button
+                    onClick={() => setStockDelta(d => d - 1)}
+                    className="w-12 shrink-0 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl flex items-center justify-center hover:bg-rose-100 transition-colors font-black text-lg"
+                  >
+                    <Minus className="w-5 h-5" />
+                  </button>
+                  <input
+                    type="number"
+                    value={stockDelta}
+                    onChange={(e) => setStockDelta(parseInt(e.target.value) || 0)}
+                    className="w-full text-center text-xl font-black text-slate-800 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                  <button
+                    onClick={() => setStockDelta(d => d + 1)}
+                    className="w-12 shrink-0 bg-emerald-50 border border-emerald-200 text-emerald-600 rounded-xl flex items-center justify-center hover:bg-emerald-100 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {stockDelta !== 0 && (
+                  <p className={`mt-1.5 text-xs font-bold text-center ${stockDelta > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {stockDelta > 0 ? `+${stockDelta} unidades serán añadidas` : `${Math.abs(stockDelta)} unidades serán descontadas`}
+                  </p>
+                )}
+              </div>
+
+              {/* Razón */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Razón (Opcional)</label>
+                <input
+                  type="text"
+                  value={adjustReason}
+                  onChange={(e) => setAdjustReason(e.target.value)}
+                  placeholder="Ej: Producción del día, Merma, Inventario inicial..."
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                />
+              </div>
+
+              <button
+                onClick={handleStockAdjust}
+                disabled={isAdjusting || stockDelta === 0}
+                className={`w-full py-4 rounded-xl font-black text-white transition-all flex justify-center items-center gap-2 
+                  ${isAdjusting || stockDelta === 0
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : stockDelta > 0
+                      ? 'bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100 active:scale-[0.98]'
+                      : 'bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-100 active:scale-[0.98]'
+                  }`}
+              >
+                {isAdjusting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                  <>{stockDelta > 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                  Confirmar Ajuste</>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

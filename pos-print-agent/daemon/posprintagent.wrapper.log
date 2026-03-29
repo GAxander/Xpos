@@ -1,0 +1,2 @@
+2026-03-26 13:27:58 - Starting D:\nodejs\node.exe  "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\node_modules\node-windows\lib\wrapper.js" --file "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\index.js" --scriptoptions= --log "POS Print Agent wrapper" --grow 0.25 --wait 1 --maxrestarts 5 --abortonerror n --stopparentfirst undefined
+2026-03-26 13:27:58 - Started 11468

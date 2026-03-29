@@ -44,6 +44,14 @@ export class OrdersController {
     return this.ordersService.cancelOrder(orderId);
   }
 
+  @Patch(':orderId/table') // PATCH /api/v1/orders/:orderId/table
+  async changeTable(
+    @Param('orderId') orderId: string,
+    @Body('newTableId') newTableId: string
+  ) {
+    return this.ordersService.changeTable(orderId, newTableId);
+  }
+
   @Delete(':orderId/items/:itemId') // DELETE /api/v1/orders/:orderId/items/:itemId
   async removeOrderItem(
     @Param('orderId') orderId: string,

@@ -118,6 +118,9 @@ model Product {
   // Opciones de Modificador (Si este producto es el agregado de otro combo)
   modifierOptions  ModifierOption[]
 
+  // Historial de movimientos de stock
+  stockMovements   StockMovement[]
+
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
@@ -153,10 +156,11 @@ model RecipeItem {
 }
 
 model KitchenStation {
-  id        String    @id @default(uuid()) @db.Uuid
-  name      String    @unique
-  colorHex  String?   @map("color_hex")
-  products  Product[]
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique
+  colorHex    String?   @map("color_hex")
+  printerName String?   @map("printer_name") // Nombre/IP de la impresora asignada
+  products    Product[]
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -203,6 +207,7 @@ model Order {
   id           String      @id @default(uuid()) @db.Uuid
   tableId      String?     @map("table_id") @db.Uuid
   table        Table?      @relation(fields: [tableId], references: [id])
+  previousTableName String?  @map("previous_table_name")
   status       OrderStatus @default(OPEN)
   customerName String?     @map("customer_name")
   totalAmount  Decimal     @default(0) @map("total_amount") @db.Decimal(10, 2)
@@ -224,7 +229,8 @@ model OrderItem {
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String  @map("product_id") @db.Uuid
   product   Product @relation(fields: [productId], references: [id])
-  status String @default("ACTIVE")
+  status    String  @default("ACTIVE")
+  isPaid    Boolean @default(false) @map("is_paid") // <-- NUEVO: Para separar cuentas
   
   quantity  Int
   unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
@@ -240,6 +246,31 @@ model OrderItem {
 
   @@map("order_items")
 }
+
+// ==========================================
+// HISTORIAL DE MOVIMIENTOS DE STOCK
+// ==========================================
+
+enum StockMovementType {
+  SALE        // Descuento automático por venta
+  ADJUSTMENT  // Ajuste manual (producción, merma, etc.)
+}
+
+model StockMovement {
+  id          String             @id @default(uuid()) @db.Uuid
+  productId   String             @map("product_id") @db.Uuid
+  product     Product            @relation(fields: [productId], references: [id])
+  type        StockMovementType
+  delta       Int                // Positivo = entrada, Negativo = salida
+  stockBefore Int                @map("stock_before")
+  stockAfter  Int                @map("stock_after")
+  reason      String?            // "Producción del día", "Venta #123", etc.
+  
+  createdAt   DateTime           @default(now()) @map("created_at")
+
+  @@map("stock_movements")
+}
+
 
 model Payment {
   id            String        @id @default(uuid()) @db.Uuid
@@ -305,4 +336,21 @@ model CashExpense {
   createdAt   DateTime  @default(now()) @map("created_at")
 
   @@map("cash_expenses")
+}
+
+// ==========================================
+// CONFIGURACIÓN DEL RESTAURANTE (SINGLETON)
+// ==========================================
+
+model RestaurantConfig {
+  id        String   @id @default("default")
+  name      String   @default("Mi Restaurante")
+  slogan    String?
+  address   String?
+  phone     String?
+  ruc       String?
+  logoUrl   String?  @map("logo_url") @db.Text  // base64 Data URL
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("restaurant_config")
 }

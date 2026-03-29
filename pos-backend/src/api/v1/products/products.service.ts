@@ -133,4 +133,114 @@ export class ProductsService {
       data: { isActive: false }
     });
   }
+
+  async adjustStock(id: string, delta: number, reason?: string) {
+    const product = await this.findOne(id);
+    const stockBefore = product.stock;
+    const stockAfter = stockBefore + delta;
+
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.product.update({
+        where: { id },
+        data: { stock: { increment: delta } },
+        select: { id: true, name: true, stock: true }
+      }),
+      this.prisma.stockMovement.create({
+        data: {
+          productId: id,
+          type: 'ADJUSTMENT',
+          delta,
+          stockBefore,
+          stockAfter,
+          reason: reason || (delta > 0 ? 'Ajuste manual (entrada)' : 'Ajuste manual (salida)')
+        }
+      })
+    ]);
+
+    return updated;
+  }
+
+  async getStockHistory(id: string, days = 7) {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    since.setHours(0, 0, 0, 0);
+
+    const movements = await this.prisma.stockMovement.findMany({
+      where: {
+        productId: id,
+        createdAt: { gte: since }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return movements;
+  }
+
+  async getKardex(days = 7) {
+    const since = new Date();
+    since.setDate(since.getDate() - (days - 1));
+    since.setHours(0, 0, 0, 0);
+
+    // Fetch all movements in period along with product info
+    const movements = await this.prisma.stockMovement.findMany({
+      where: { createdAt: { gte: since } },
+      include: { product: { select: { id: true, name: true, stock: true, minStock: true, category: { select: { name: true } } } } },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Also fetch all active products to include ones with no movements
+    const allProducts = await this.prisma.product.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, stock: true, minStock: true, category: { select: { name: true } } },
+      orderBy: { name: 'asc' },
+    });
+
+    // Build list of dates (last `days` days, oldest first)
+    const dates: string[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dates.push(d.toISOString().slice(0, 10)); // 'YYYY-MM-DD'
+    }
+
+    // Group: productId -> dateString -> last stockAfter of that day
+    const closingByProductDate: Record<string, Record<string, number>> = {};
+
+    for (const mov of movements) {
+      const dateKey = mov.createdAt.toISOString().slice(0, 10);
+      const pid = mov.productId;
+      if (!closingByProductDate[pid]) closingByProductDate[pid] = {};
+      // Overwrite — since ordered asc, last one wins = closing of day (last shift)
+      closingByProductDate[pid][dateKey] = mov.stockAfter;
+    }
+
+    // Build result: for each product, carry forward last known stock if no movement on a day
+    const kardex = allProducts.map((product) => {
+      const dailyClosing: Record<string, number | null> = {};
+      let lastKnown: number | null = null;
+
+      // Walk dates oldest → newest, carry stock forward
+      for (const date of dates) {
+        const closing = closingByProductDate[product.id]?.[date];
+        if (closing !== undefined) {
+          lastKnown = closing;
+          dailyClosing[date] = closing;
+        } else {
+          // No movement today: carry forward (null if we have no data at all yet)
+          dailyClosing[date] = lastKnown;
+        }
+      }
+
+      return {
+        productId: product.id,
+        productName: product.name,
+        category: product.category?.name ?? 'Sin Categoría',
+        currentStock: product.stock,
+        minStock: product.minStock,
+        dailyClosing, // { 'YYYY-MM-DD': number | null }
+      };
+    });
+
+    return { dates, kardex };
+  }
 }

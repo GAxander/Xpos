@@ -20,6 +20,11 @@ export class ProductsController {
     return this.productsService.findAll();
   }
 
+  @Get('kardex')
+  getKardex() {
+    return this.productsService.getKardex();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);
@@ -38,5 +43,18 @@ export class ProductsController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
+  }
+
+  @Patch(':id/stock')
+  async adjustStock(
+    @Param('id') id: string,
+    @Body() body: { delta: number; reason?: string }
+  ) {
+    return this.productsService.adjustStock(id, body.delta, body.reason);
+  }
+
+  @Get(':id/stock-history')
+  async getStockHistory(@Param('id') id: string) {
+    return this.productsService.getStockHistory(id);
   }
 }

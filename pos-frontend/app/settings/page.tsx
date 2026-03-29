@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, Plus, Map, Users, Square, X, Loader2, Trash2, Edit } from 'lucide-react';
+import { Settings, Plus, Map, Users, Square, X, Loader2, Trash2, Edit, Store, Phone, MapPin, FileText, ImagePlus, Save, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Table {
@@ -18,10 +18,26 @@ interface Zone {
   tables: Table[];
 }
 
+interface RestaurantConfig {
+  id: string;
+  name: string;
+  slogan?: string;
+  address?: string;
+  phone?: string;
+  ruc?: string;
+  logoUrl?: string;
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Restaurant config state
+  const [config, setConfig] = useState<RestaurantConfig>({ id: 'default', name: '' });
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [configOpen, setConfigOpen] = useState(true);
 
   // Modals state
   const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
@@ -31,6 +47,16 @@ export default function SettingsPage() {
   // Forms state
   const [zoneForm, setZoneForm] = useState({ id: '', name: '' });
   const [tableForm, setTableForm] = useState({ id: '', zoneId: '', number: '', capacity: 4 });
+
+  const fetchConfig = async () => {
+    const token = localStorage.getItem('pos_token');
+    try {
+      const res = await fetch('http://localhost:3000/api/v1/restaurant-config', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setConfig(await res.json());
+    } catch { /* silently ignore */ }
+  };
 
   const fetchZones = async () => {
     const token = localStorage.getItem('pos_token');
@@ -51,9 +77,54 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveConfig = async () => {
+    setIsSavingConfig(true);
+    const token = localStorage.getItem('pos_token');
+    try {
+      const res = await fetch('http://localhost:3000/api/v1/restaurant-config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          name: config.name,
+          slogan: config.slogan,
+          address: config.address,
+          phone: config.phone,
+          ruc: config.ruc,
+          logoUrl: config.logoUrl,
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setConfig(updated);
+        // Persist in localStorage so Sidebar reads it immediately
+        localStorage.setItem('pos_restaurant_config', JSON.stringify(updated));
+        toast.success('Configuración guardada');
+        // Dispatch storage event so Sidebar picks it up in the same tab
+        window.dispatchEvent(new Event('storage'));
+      } else {
+        toast.error('Error al guardar la configuración');
+      }
+    } catch {
+      toast.error('Error de red');
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) { toast.error('El logo no debe superar 500 KB'); return; }
+    const reader = new FileReader();
+    reader.onload = () => setConfig(prev => ({ ...prev, logoUrl: reader.result as string }));
+    reader.readAsDataURL(file);
+  };
+
   useEffect(() => {
+    fetchConfig();
     fetchZones();
   }, [router]);
+
 
   // --- ZONES ---
 
@@ -228,6 +299,140 @@ export default function SettingsPage() {
         </button>
       </header>
 
+      {/* ===== DATOS DEL RESTAURANTE ===== */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 mb-8 overflow-hidden">
+        {/* Card header (collapsible) */}
+        <button
+          type="button"
+          onClick={() => setConfigOpen(o => !o)}
+          className="w-full flex items-center justify-between p-6 border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center">
+              <Store className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div className="text-left">
+              <h2 className="text-lg font-black text-slate-800">Datos del Restaurante</h2>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Nombre, logo y datos del negocio</p>
+            </div>
+          </div>
+          {configOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+        </button>
+
+        {configOpen && (
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Logo column */}
+              <div className="flex flex-col items-center gap-4">
+                <div
+                  className="w-36 h-36 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all group"
+                  onClick={() => logoInputRef.current?.click()}
+                >
+                  {config.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={config.logoUrl} alt="Logo" className="w-full h-full object-contain p-2" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-slate-400 group-hover:text-indigo-500">
+                      <ImagePlus className="w-8 h-8" />
+                      <span className="text-xs font-bold">Subir logo</span>
+                    </div>
+                  )}
+                </div>
+                <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+                <p className="text-xs text-slate-400 text-center">PNG, JPG o SVG. Máx. 500 KB</p>
+                {config.logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setConfig(p => ({ ...p, logoUrl: undefined }))}
+                    className="text-xs text-rose-500 hover:text-rose-700 font-bold"
+                  >
+                    Quitar logo
+                  </button>
+                )}
+              </div>
+
+              {/* Fields column */}
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 block">
+                    Nombre del Restaurante *
+                  </label>
+                  <div className="relative">
+                    <Store className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={config.name}
+                      onChange={e => setConfig(p => ({ ...p, name: e.target.value }))}
+                      placeholder="Ej. La Buena Mesa"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 font-bold"
+                    />
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 block">Slogan</label>
+                  <input
+                    type="text"
+                    value={config.slogan ?? ''}
+                    onChange={e => setConfig(p => ({ ...p, slogan: e.target.value }))}
+                    placeholder='Ej. "El sabor de siempre"'
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 block flex items-center gap-1">
+                    <Phone className="w-3 h-3" /> Teléfono
+                  </label>
+                  <input
+                    type="text"
+                    value={config.phone ?? ''}
+                    onChange={e => setConfig(p => ({ ...p, phone: e.target.value }))}
+                    placeholder="Ej. +51 999 123 456"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 block flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> RUC
+                  </label>
+                  <input
+                    type="text"
+                    value={config.ruc ?? ''}
+                    onChange={e => setConfig(p => ({ ...p, ruc: e.target.value }))}
+                    placeholder="Ej. 20123456789"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 block flex items-center gap-1">
+                    <MapPin className="w-3 h-3" /> Dirección
+                  </label>
+                  <input
+                    type="text"
+                    value={config.address ?? ''}
+                    onChange={e => setConfig(p => ({ ...p, address: e.target.value }))}
+                    placeholder="Ej. Av. Principal 123, Huanchaco"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Save button */}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={handleSaveConfig}
+                disabled={isSavingConfig || !config.name.trim()}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-indigo-100"
+              >
+                {isSavingConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Guardar Configuración
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ===== ZONAS Y MESAS ===== */}
       {zones.length === 0 ? (
         <div className="text-center bg-white rounded-3xl shadow-sm border border-slate-100 p-16">
           <Map className="w-16 h-16 text-slate-300 mx-auto mb-4" />

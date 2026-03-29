@@ -14,6 +14,8 @@ export class CreatePaymentDto {
   @IsOptional()
   @Min(0)
   tipAmount?: number;
+  @IsOptional()
+  itemIds?: string[];
 
   @IsEnum(PaymentMethod, { message: 'Método no válido. Usa CASH, CARD o TRANSFER' })
   paymentMethod: PaymentMethod;

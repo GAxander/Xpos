@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Search, Plus, Minus, Trash2, ShoppingCart, UtensilsCrossed, ReceiptText, ChefHat, CheckCircle2, AlertTriangle, X, Printer, CreditCard, Banknote, Smartphone, Edit2, Heart } from 'lucide-react';
+import { ArrowLeft, Search, Plus, Minus, Trash2, ShoppingCart, UtensilsCrossed, ReceiptText, ChefHat, CheckCircle2, AlertTriangle, X, Printer, CreditCard, Banknote, Smartphone, Edit2, Heart, ArrowRightLeft, Scissors } from 'lucide-react';
 import { toast } from 'sonner';
 import ComboModal from '@/components/ComboModal';
 
@@ -34,6 +34,7 @@ interface CartItem {
 interface ExistingItem extends CartItem {
   id: string;
   parentItemId?: string | null;
+  isPaid?: boolean;
 }
 
 // NUEVO: Interfaz para los pagos registrados
@@ -62,9 +63,21 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
   const [showCheckout, setShowCheckout] = useState(false);
   const [tableName, setTableName] = useState<string>('');
 
+  // Estados para Separar Cuentas
+  const [showSplitBillModal, setShowSplitBillModal] = useState(false);
+  const [selectedSplitItems, setSelectedSplitItems] = useState<string[]>([]);
+  // Checkout mode determines if we are paying the full remaining or a selected split
+  const [checkoutMode, setCheckoutMode] = useState<'NORMAL' | 'SPLIT'>('NORMAL');
+
   // Estados para Modificadores/Combos
   const [showComboModal, setShowComboModal] = useState(false);
   const [selectedComboProduct, setSelectedComboProduct] = useState<Product | null>(null);
+
+  // Cambiar Mesa states
+  const [showChangeTableModal, setShowChangeTableModal] = useState(false);
+  const [freeTables, setFreeTables] = useState<any[]>([]);
+  const [loadingTables, setLoadingTables] = useState(false);
+  const [selectedNewTableId, setSelectedNewTableId] = useState<string | null>(null);
 
   // NUEVO: Estados avanzados para los pagos
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -79,6 +92,20 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     itemId?: string;
     itemName?: string;
   } | null>(null);
+
+  // Restaurant config for the receipt
+  const [restaurantConfig, setRestaurantConfig] = useState<{
+    name: string; slogan?: string; address?: string; phone?: string; ruc?: string; logoUrl?: string;
+  }>({ name: '' });
+
+  useEffect(() => {
+    const cached = localStorage.getItem('pos_restaurant_config');
+    if (cached) { try { setRestaurantConfig(JSON.parse(cached)); } catch { /**/ } }
+    fetch('http://localhost:3000/api/v1/restaurant-config')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) { setRestaurantConfig(d); localStorage.setItem('pos_restaurant_config', JSON.stringify(d)); } })
+      .catch(() => { /**/ });
+  }, []);
 
   // Fetch initial data
   useEffect(() => {
@@ -136,7 +163,8 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
             quantity: item.quantity,
             unitPrice: Number(item.unitPrice),
             notes: item.notes,
-            parentItemId: item.parentItemId
+            parentItemId: item.parentItemId,
+            isPaid: item.isPaid
           })));
         } else if (activeOrderRes.status !== 404) {
           console.error("Error fetching active order:", await activeOrderRes.text());
@@ -365,6 +393,58 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     }
   };
 
+  const fetchFreeTables = async () => {
+    setLoadingTables(true);
+    try {
+      const token = localStorage.getItem('pos_token');
+      const res = await fetch('http://localhost:3000/api/v1/floor/zones', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const zonesData = await res.json();
+        const available = zonesData.flatMap((z: any) => z.tables).filter((t: any) => t.status === 'FREE');
+        
+        // Ordenar alfabéticamente
+        available.sort((a: any, b: any) => {
+          const nameA = a.name || String(a.number);
+          const nameB = b.name || String(b.number);
+          return nameA.localeCompare(nameB);
+        });
+
+        setFreeTables(available);
+      }
+    } catch (e) {
+      toast.error('Error cargando mesas libres');
+    } finally {
+      setLoadingTables(false);
+    }
+  };
+
+  const executeChangeTable = async () => {
+    if (!activeOrderId || !selectedNewTableId) return;
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem('pos_token');
+      const response = await fetch(`http://localhost:3000/api/v1/orders/${activeOrderId}/table`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newTableId: selectedNewTableId })
+      });
+      if (response.ok) {
+        toast.success("Mesa cambiada exitosamente");
+        setShowChangeTableModal(false);
+        router.push('/');
+      } else {
+        const data = await response.json();
+        toast.error(data.message || "Error al cambiar mesa");
+      }
+    } catch (e) {
+      toast.error("Error de red al cambiar mesa");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ==========================================
   // LÓGICA AVANZADA DE PAGOS (Editar/Eliminar)
   // ==========================================
@@ -420,19 +500,30 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
 
     try {
       let response;
+      const bodyPayload: any = {
+        orderId: activeOrderId,
+        amount: paymentAmount,
+        tipAmount,
+        paymentMethod
+      };
+      
+      if (checkoutMode === 'SPLIT' && selectedSplitItems.length > 0) {
+        bodyPayload.itemIds = selectedSplitItems;
+      }
+
       if (editingPaymentId) {
         // Actualizar pago existente
         response = await fetch(`http://localhost:3000/api/v1/payments/${editingPaymentId}`, {
           method: 'PATCH',
           headers,
-          body: JSON.stringify({ amount: paymentAmount, tipAmount, paymentMethod })
+          body: JSON.stringify(bodyPayload)
         });
       } else {
         // Crear nuevo pago
         response = await fetch('http://localhost:3000/api/v1/payments', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ orderId: activeOrderId, amount: paymentAmount, tipAmount, paymentMethod })
+          body: JSON.stringify(bodyPayload)
         });
       }
 
@@ -483,41 +574,84 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     <>
       {/* PRINTABLE PRE-CUENTA */}
       <div className="hidden print:block w-[80mm] text-black bg-white p-4 font-mono text-[11px] leading-tight">
-        <div className="text-center mb-4">
-          <h2 className="font-bold text-xl mb-1 uppercase">NOMBRE RESTAURANTE</h2>
-          <p className="text-xs">Huanchaco Vista al Mar</p>
-          <div className="border-b border-dashed border-black my-2"></div>
-          <p className="font-bold text-lg uppercase">MESA {tableName || tableId.slice(0,4)}</p>
-          <p className="text-xs mt-1">{new Date().toLocaleString()}</p>
+        {/* ===== HEADER ===== */}
+        <div className="text-center mb-3">
+          {/* Logo */}
+          {restaurantConfig.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={restaurantConfig.logoUrl} alt="logo" className="h-16 mx-auto mb-2 object-contain" />
+          )}
+          <h2 className="font-bold text-base uppercase tracking-wide">{restaurantConfig.name || 'MI RESTAURANTE'}</h2>
+          {restaurantConfig.slogan && <p className="text-[10px] italic mt-0.5">{restaurantConfig.slogan}</p>}
+          {restaurantConfig.address && <p className="text-[10px] mt-0.5">{restaurantConfig.address}</p>}
+          <div className="flex justify-center gap-4 mt-0.5">
+            {restaurantConfig.phone && <p className="text-[10px]">Tel: {restaurantConfig.phone}</p>}
+            {restaurantConfig.ruc && <p className="text-[10px]">RUC: {restaurantConfig.ruc}</p>}
+          </div>
         </div>
-        <div className="border-b border-dashed border-black my-2"></div>
-        <table className="w-full mb-2">
+
+        <div className="border-b border-dashed border-black my-2" />
+
+        {/* ===== TICKET INFO ===== */}
+        <div className="text-center mb-2">
+          <p className="font-bold text-sm uppercase">PRE-CUENTA — MESA {tableName || tableId.slice(0,4)}</p>
+          {showSplitBillModal && <p className="text-[10px] font-bold uppercase tracking-wide mt-0.5">(Cuenta Dividida)</p>}
+          <p className="text-[10px] text-gray-600 mt-0.5">{new Date().toLocaleString('es-PE')}</p>
+        </div>
+
+        <div className="border-b border-dashed border-black my-2" />
+
+        {/* ===== ITEMS ===== */}
+        <table className="w-full mb-1 text-[11px]">
           <thead>
             <tr className="border-b border-dashed border-black">
-              <th className="text-left font-normal pb-1 w-6">Cant</th>
-              <th className="text-left font-normal pb-1">Desc</th>
-              <th className="text-right font-normal pb-1 w-12">P.U.</th>
-              <th className="text-right font-normal pb-1 w-16">Total</th>
+              <th className="text-left font-bold pb-1 w-4">Cant</th>
+              <th className="text-left font-bold pb-1 pl-1">Descripción</th>
+              <th className="text-right font-bold pb-1 w-12">P.U.</th>
+              <th className="text-right font-bold pb-1 w-14">Total</th>
             </tr>
           </thead>
           <tbody>
-            {existingItems.filter(i => !i.parentItemId).map(item => (
-              <tr key={item.id}>
-                <td className="align-top py-1">{item.quantity}</td>
-                <td className="align-top py-1 pr-1">{item.name}</td>
-                <td className="align-top text-right py-1">{item.unitPrice.toFixed(2)}</td>
-                <td className="align-top text-right py-1">{(item.quantity * item.unitPrice).toFixed(2)}</td>
-              </tr>
+            {existingItems
+              .filter(i => !i.parentItemId)
+              .filter(i => showSplitBillModal ? selectedSplitItems.includes(i.id) : true)
+              .map(item => (
+                <tr key={item.id}>
+                  <td className="align-top py-0.5">{item.quantity}</td>
+                  <td className="align-top py-0.5 pl-1 pr-1">
+                    <span>{item.name}</span>
+                    {/* Sub-items (combo options) */}
+                    {existingItems
+                      .filter(s => s.parentItemId === item.id)
+                      .map(sub => (
+                        <div key={sub.id} className="text-[10px] text-gray-500 pl-1">↳ {sub.name}</div>
+                      ))}
+                  </td>
+                  <td className="align-top text-right py-0.5">{item.unitPrice.toFixed(2)}</td>
+                  <td className="align-top text-right py-0.5">{(item.quantity * item.unitPrice).toFixed(2)}</td>
+                </tr>
             ))}
           </tbody>
         </table>
-        <div className="border-b border-dashed border-black my-2"></div>
-        <div className="flex justify-between font-bold text-base mt-2">
-          <span>TOTAL:</span>
-          <span>S/ {existingSubtotal.toFixed(2)}</span>
+
+        <div className="border-b border-dashed border-black my-2" />
+
+        {/* ===== TOTAL ===== */}
+        <div className="flex justify-between font-bold text-sm mt-1">
+          <span>{showSplitBillModal ? 'SUBTOTAL:' : 'TOTAL:'}</span>
+          <span>S/ {showSplitBillModal
+            ? selectedSplitItems.reduce((sum, id) => {
+                const it = existingItems.find(i => i.id === id);
+                return sum + (it ? it.quantity * it.unitPrice : 0);
+              }, 0).toFixed(2)
+            : existingSubtotal.toFixed(2)}
+          </span>
         </div>
-        <div className="text-center mt-8 pt-2 border-t border-black">
-          <p className="text-sm font-bold">¡Gracias por su visita!</p>
+
+        {/* ===== FOOTER ===== */}
+        <div className="text-center mt-6 pt-3 border-t border-dashed border-black">
+          <p className="font-bold text-xs">¡Gracias por su visita!</p>
+          {restaurantConfig.name && <p className="text-[10px] mt-0.5 text-gray-500">{restaurantConfig.name}</p>}
         </div>
       </div>
 
@@ -654,7 +788,12 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
                     Ya enviados a cocina
                   </h3>
                   {existingItems.map(item => (
-                    <div key={item.id} className="bg-slate-100/50 border border-slate-200 rounded-xl p-3 opacity-75">
+                    <div key={item.id} className="bg-slate-100/50 border border-slate-200 rounded-xl p-3 opacity-75 relative">
+                      {item.isPaid && (
+                        <div className="absolute top-0 right-0 -mt-2 -mr-2 bg-emerald-500 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Pagado
+                        </div>
+                      )}
                       <div className="flex justify-between items-start mb-1">
                         <span className="font-bold text-slate-700 text-sm pr-2 line-clamp-2 flex-1">
                           {item.quantity}x {item.name}
@@ -773,36 +912,66 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
         <div className="bg-white border-t border-slate-200 p-5 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.03)] z-10">
           <div className="flex justify-between items-center mb-4">
             <span className="text-slate-500 font-bold text-base">Total Pedido:</span>
-            <div className="flex flex-col items-end">
-              <span className="text-2xl font-black text-emerald-600">
+            <div className="flex flex-col items-end w-full">
+              <span className="text-2xl font-black text-emerald-600 mb-2">
                 S/ {totalAmount.toFixed(2)}
               </span>
               {activeOrderId && (
-                <button 
-                  onClick={handleCancelOrderRequest}
-                  className="text-xs text-rose-500 font-medium hover:text-rose-700 underline mt-1 outline-none"
-                >
-                  Cancelar Pedido
-                </button>
+                <div className="flex items-center gap-2 w-full mt-1">
+                  <button 
+                    onClick={() => {
+                        fetchFreeTables();
+                        setShowChangeTableModal(true);
+                    }}
+                    className="flex-1 py-2 px-2 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 font-bold text-xs rounded-lg transition-all flex justify-center items-center gap-1.5 outline-none shadow-sm"
+                  >
+                    <ArrowRightLeft className="w-3 h-3" />
+                    Cambiar Mesa
+                  </button>
+                  <button 
+                    onClick={handleCancelOrderRequest}
+                    className="flex-1 py-2 px-2 bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 font-bold text-xs rounded-lg transition-all flex justify-center items-center gap-1.5 outline-none shadow-sm"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Anular
+                  </button>
+                </div>
               )}
             </div>
           </div>
 
           {cart.length === 0 && activeOrderId ? (
-            <button 
-              onClick={() => {
-                resetPaymentForm();
-                setShowCheckout(true);
-              }}
-              disabled={submitting || existingItems.length === 0}
-              className={`w-full py-4 rounded-xl font-black text-white flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]
-                ${submitting || existingItems.length === 0
-                  ? 'bg-slate-300 opacity-70 cursor-not-allowed shadow-none' 
-                  : 'bg-blue-600 hover:bg-blue-500 shadow-blue-200 hover:shadow-blue-300'}`}
-            >
-              <ReceiptText className="w-5 h-5" />
-              COBRAR CUENTA
-            </button>
+            <div className="flex gap-2 w-full">
+              <button 
+                onClick={() => {
+                  setCheckoutMode('NORMAL');
+                  resetPaymentForm();
+                  setShowCheckout(true);
+                }}
+                disabled={submitting || existingItems.length === 0}
+                className={`flex-[2] py-4 rounded-xl font-black text-white flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]
+                  ${submitting || existingItems.length === 0
+                    ? 'bg-slate-300 opacity-70 cursor-not-allowed shadow-none' 
+                    : 'bg-blue-600 hover:bg-blue-500 shadow-blue-200 hover:shadow-blue-300'}`}
+              >
+                <ReceiptText className="w-5 h-5" />
+                COBRAR CUENTA
+              </button>
+              <button 
+                onClick={() => {
+                  setSelectedSplitItems([]);
+                  setShowSplitBillModal(true);
+                }}
+                disabled={submitting || existingItems.length === 0 || existingItems.every(i => i.isPaid)}
+                className={`flex-1 py-4 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-all active:scale-[0.98] border-2
+                  ${submitting || existingItems.length === 0 || existingItems.every(i => i.isPaid)
+                    ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed' 
+                    : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 shadow-sm'}`}
+              >
+                <Scissors className="w-4 h-4" />
+                <span className="text-[10px] uppercase leading-none">Dividir</span>
+              </button>
+            </div>
           ) : (
             <button 
               onClick={submitOrder}
@@ -1081,7 +1250,169 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
           </div>
         </div>
       )}
+
+      {/* MODAL DE CAMBIAR MESA */}
+      {showChangeTableModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200 print:hidden">
+          <div className="bg-white rounded-3xl overflow-hidden shadow-2xl w-[90%] max-w-md flex flex-col animate-in zoom-in-95 duration-200 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-black text-slate-800">Cambiar de Mesa</h3>
+              <button 
+                onClick={() => {
+                  setShowChangeTableModal(false);
+                  setSelectedNewTableId(null);
+                }} 
+                className="text-slate-400 hover:text-slate-600 outline-none"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            {loadingTables ? (
+               <div className="flex py-10 justify-center"><div className="w-8 h-8 border-4 border-slate-200 border-t-emerald-500 rounded-full animate-spin"></div></div>
+            ) : freeTables.length === 0 ? (
+               <p className="text-slate-500 text-center py-6 font-medium">No hay mesas libres disponibles.</p>
+            ) : (
+               <div className="grid grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                 {freeTables.map(t => (
+                   <button
+                     key={t.id}
+                     onClick={() => setSelectedNewTableId(t.id)}
+                     className={`py-3 px-2 rounded-xl text-sm font-bold border-2 transition-all ${selectedNewTableId === t.id ? 'bg-emerald-50 border-emerald-500 text-emerald-700 cursor-default' : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-emerald-300'}`}
+                   >
+                     {t.name || t.number}
+                   </button>
+                 ))}
+               </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => {
+                  setShowChangeTableModal(false);
+                  setSelectedNewTableId(null);
+                }}
+                className="flex-1 py-3 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+               >
+                 Cancelar
+               </button>
+               <button 
+                 onClick={executeChangeTable}
+                 disabled={!selectedNewTableId || submitting}
+                 className={`flex-1 py-3 rounded-xl font-bold text-white transition-colors ${!selectedNewTableId || submitting ? 'bg-slate-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-200'}`}
+               >
+                 Confirmar
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
+      {/* MODAL DE SEPARAR CUENTA */}
+      {showSplitBillModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200 print:hidden">
+          <div className="bg-white rounded-3xl overflow-hidden shadow-2xl w-[90%] max-w-lg flex flex-col animate-in zoom-in-95 duration-200 max-h-[90vh]">
+            
+            <div className="bg-slate-800 text-white p-5 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-lg font-black flex items-center gap-2 leading-none mb-1">
+                  <Scissors className="w-5 h-5 text-slate-300" />
+                  Dividir Cuenta
+                </h3>
+                <p className="text-slate-300 text-xs font-medium">Selecciona los productos a cobrar por separado</p>
+              </div>
+              <button 
+                onClick={() => setShowSplitBillModal(false)}
+                className="text-slate-300 hover:bg-slate-700 p-2 rounded-full transition-colors outline-none"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto flex-1 font-sans bg-slate-50/50 min-h-[300px]">
+               {existingItems.filter(item => !item.isPaid).length === 0 ? (
+                 <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                   <p className="font-medium">No hay productos pendientes por cobrar.</p>
+                 </div>
+               ) : (
+                 <div className="space-y-2">
+                   {existingItems.filter(item => !item.isPaid).map(item => {
+                     const isSelected = selectedSplitItems.includes(item.id);
+                     return (
+                       <div 
+                         key={item.id} 
+                         onClick={() => {
+                           if (isSelected) {
+                             setSelectedSplitItems(prev => prev.filter(id => id !== item.id));
+                           } else {
+                             setSelectedSplitItems(prev => [...prev, item.id]);
+                           }
+                         }}
+                         className={`p-4 rounded-xl border-2 flex items-center gap-4 cursor-pointer transition-all ${isSelected ? 'bg-blue-50 border-blue-500 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-200'}`}
+                       >
+                         <div className={`w-6 h-6 shrink-0 rounded-md flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'}`}>
+                           {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                         </div>
+                         <div className="flex-1">
+                           <p className={`font-bold text-sm ${isSelected ? 'text-blue-900' : 'text-slate-700'}`}>{item.quantity}x {item.name}</p>
+                           {item.notes && <p className="text-xs text-slate-500 italic mt-0.5">"{item.notes}"</p>}
+                         </div>
+                         <span className={`font-black ${isSelected ? 'text-blue-700' : 'text-slate-600'}`}>
+                           S/ {(item.quantity * item.unitPrice).toFixed(2)}
+                         </span>
+                       </div>
+                     );
+                   })}
+                 </div>
+               )}
+            </div>
+            
+            <div className="p-5 border-t border-slate-100 bg-white shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
+               <div className="flex justify-between items-center mb-4 px-1">
+                 <span className="font-bold text-slate-500 text-sm">Total Seleccionado:</span>
+                 <span className="text-2xl font-black text-blue-600">
+                   S/ {selectedSplitItems.reduce((sum, id) => {
+                     const it = existingItems.find(i => i.id === id);
+                     return sum + (it ? (it.quantity * it.unitPrice) : 0);
+                   }, 0).toFixed(2)}
+                 </span>
+               </div>
+               
+               <div className="flex gap-3">
+                 <button 
+                   onClick={() => {
+                     if (selectedSplitItems.length > 0) window.print();
+                   }}
+                   disabled={selectedSplitItems.length === 0}
+                   className={`px-5 py-3 rounded-xl flex items-center justify-center transition-all ${selectedSplitItems.length === 0 ? 'border border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed' : 'border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 shadow-sm'}`}
+                   title="Imprimir tickets parciais"
+                 >
+                   <Printer className="w-6 h-6" />
+                 </button>
+                 <button
+                   onClick={() => {
+                     setCheckoutMode('SPLIT');
+                     const splitSum = selectedSplitItems.reduce((sum, id) => {
+                       const it = existingItems.find(i => i.id === id);
+                       return sum + (it ? (it.quantity * it.unitPrice) : 0);
+                     }, 0);
+                     setPaymentAmount(splitSum);
+                     setTipAmount(0);
+                     setPaymentMethod('CASH');
+                     setShowSplitBillModal(false);
+                     setShowCheckout(true);
+                   }}
+                   disabled={selectedSplitItems.length === 0}
+                   className={`flex-1 py-4 rounded-xl font-black text-lg text-white transition-all flex justify-center items-center gap-2 ${selectedSplitItems.length === 0 ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 active:scale-[0.98]'}`}
+                 >
+                   Cobrar Selección
+                 </button>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE COMBOS Y MODIFICADORES */}
       {showComboModal && selectedComboProduct && (
