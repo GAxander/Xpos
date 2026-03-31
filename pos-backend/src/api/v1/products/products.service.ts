@@ -9,12 +9,15 @@ export class ProductsService {
   // Inyectamos el servicio de Prisma que ya usas para tus usuarios
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createProductDto: CreateProductDto) {
-    const { modifierGroups, ...productData } = createProductDto;
+  async create(createProductDto: any) {
+    const { modifierGroups, stationIds, ...productData } = createProductDto;
 
     const newProduct = await this.prisma.product.create({
       data: {
         ...productData,
+        ...(stationIds?.length > 0 && {
+          stations: { connect: stationIds.map(id => ({ id })) }
+        }),
         modifierGroups: modifierGroups && modifierGroups.length > 0 ? {
           create: modifierGroups.map(mg => ({
             name: mg.name,
@@ -31,7 +34,7 @@ export class ProductsService {
       },
       include: {
         category: true,
-        station: true,
+        stations: true,
         modifierGroups: {
           include: { options: { include: { targetProduct: true } } }
         }
@@ -50,7 +53,7 @@ export class ProductsService {
       orderBy: { name: 'asc' },
       include: { 
         category: true, 
-        station: true,
+        stations: true,
         modifierGroups: {
           include: { options: { include: { targetProduct: true } } }
         }
@@ -69,7 +72,7 @@ export class ProductsService {
       where: { id },
       include: { 
         category: true, 
-        station: true,
+        stations: true,
         modifierGroups: {
           include: { options: { include: { targetProduct: true } } }
         }
@@ -89,12 +92,16 @@ export class ProductsService {
     
     // Si viene la propiedad modifierGroups en el DTO, reescribimos los modificadores
     // Prisma permite borrar los existentes (deleteMany) y recrearlos en una sola operación.
-    const { modifierGroups, ...productData } = updateProductDto as any; // Cast avoid TS strict partial checks
+    const { modifierGroups, stationIds, ...productData } = updateProductDto as any; // Cast avoid TS strict partial checks
 
     const updatedProduct = await this.prisma.product.update({
       where: { id },
       data: {
         ...productData,
+        stations: {
+          set: [], // Resetea primero (quita relaciones anteriores)
+          connect: stationIds?.map((id: string) => ({ id })) || []
+        },
         modifierGroups: modifierGroups !== undefined ? {
           deleteMany: {},
           create: modifierGroups.map((mg: any) => ({
@@ -112,7 +119,7 @@ export class ProductsService {
       },
       include: { 
         category: true, 
-        station: true,
+        stations: true,
         modifierGroups: {
           include: { options: { include: { targetProduct: true } } }
         }

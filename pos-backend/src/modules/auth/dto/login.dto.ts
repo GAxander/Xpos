@@ -8,3 +8,17 @@ export class LoginDto {
   @IsNotEmpty()
   password: string;
 }
+
+export class LoginPinDto {
+  @IsString()
+  @IsNotEmpty()
+  pin: string;
+
+  @IsString()
+  @IsNotEmpty()
+  restaurantId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  userId: string;
+}

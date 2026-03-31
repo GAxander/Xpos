@@ -48,7 +48,7 @@ export default function KardexPage() {
       const token = localStorage.getItem('pos_token');
       if (!token) { router.push('/login'); return; }
       try {
-        const res = await fetch('http://localhost:3000/api/v1/products/kardex', {
+        const res = await fetch('/api/v1/products/kardex', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.status === 401) { router.push('/login'); return; }

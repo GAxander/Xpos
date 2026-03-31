@@ -16,4 +16,8 @@ export class CreateProductDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsString({ each: true })
+  @IsOptional()
+  stationIds?: string[];
 }

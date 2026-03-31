@@ -4,13 +4,15 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package, Search, Plus, AlertCircle, CheckCircle2, ArrowUpDown, Filter, Edit, Trash2, X, Loader2, PackagePlus, Minus, TrendingDown, TrendingUp, History, ShoppingBag, Wrench, LayoutGrid } from 'lucide-react';
 import { toast } from 'sonner';
+import { useGuardedRoute } from '@/hooks/useGuardedRoute';
 
 interface Product {
   id: string;
   name: string;
   category: string;
   categoryId?: string;
-  stationId?: string; // Edit support
+  stationIds?: string[]; // Múltiples áreas
+  stations?: KitchenStation[]; // Para lectura de backend
   price: number;
   stock: number;
   minStock: number;
@@ -43,6 +45,7 @@ interface KitchenStation {
 
 export default function InventoryPage() {
   const router = useRouter();
+  useGuardedRoute('inventario');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,7 +57,7 @@ export default function InventoryPage() {
   const [stations, setStations] = useState<KitchenStation[]>([]);
   const [activeTab, setActiveTab] = useState<'info' | 'modifiers'>('info');
   const [formData, setFormData] = useState<Product>({
-    id: '', name: '', category: '', categoryId: '', stationId: '', price: 0, stock: 0, minStock: 0, modifierGroups: []
+    id: '', name: '', category: '', categoryId: '', stationIds: [], price: 0, stock: 0, minStock: 0, modifierGroups: []
   });
 
   // Estados para el ajuste rápido de stock
@@ -72,7 +75,7 @@ export default function InventoryPage() {
   const fetchProducts = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('http://localhost:3000/api/v1/products', {
+      const response = await fetch('/api/v1/products', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -91,7 +94,7 @@ export default function InventoryPage() {
   const fetchCategories = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('http://localhost:3000/api/v1/inventory/categories', {
+      const response = await fetch('/api/v1/inventory/categories', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -106,7 +109,7 @@ export default function InventoryPage() {
   const fetchStations = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('http://localhost:3000/api/v1/kitchen-stations', {
+      const response = await fetch('/api/v1/kitchen-stations', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -131,8 +134,8 @@ export default function InventoryPage() {
     
     const isEditing = formData.id !== '';
     const url = isEditing 
-      ? `http://localhost:3000/api/v1/products/${formData.id}` 
-      : 'http://localhost:3000/api/v1/products';
+      ? `/api/v1/products/${formData.id}` 
+      : '/api/v1/products';
     
     const method = isEditing ? 'PATCH' : 'POST';
 
@@ -140,7 +143,7 @@ export default function InventoryPage() {
     const bodyData = {
       name: formData.name,
       categoryId: formData.categoryId,
-      stationId: formData.stationId || null,
+      stationIds: formData.stationIds || [],
       price: formData.price,
       stock: formData.stock,
       minStock: formData.minStock,
@@ -185,7 +188,7 @@ export default function InventoryPage() {
     
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`http://localhost:3000/api/v1/products/${id}`, {
+      const response = await fetch(`/api/v1/products/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -205,9 +208,13 @@ export default function InventoryPage() {
   const openModal = (product?: Product) => {
     setActiveTab('info');
     if (product) {
-      setFormData({ ...product, modifierGroups: product.modifierGroups || [] }); // Si mandamos producto, es Editar
+      setFormData({ 
+        ...product, 
+        stationIds: product.stations?.map(s => s.id) || [],
+        modifierGroups: product.modifierGroups || [] 
+      }); // Editar
     } else {
-      setFormData({ id: '', name: '', category: '', categoryId: '', stationId: '', price: 0, stock: 0, minStock: 0, modifierGroups: [] }); // Si no, es Nuevo
+      setFormData({ id: '', name: '', category: '', categoryId: '', stationIds: [], price: 0, stock: 0, minStock: 0, modifierGroups: [] }); // Nuevo
     }
     setIsModalOpen(true);
   };
@@ -227,7 +234,7 @@ export default function InventoryPage() {
     const token = localStorage.getItem('pos_token');
     try {
       const response = await fetch(
-        `http://localhost:3000/api/v1/products/${adjustingProduct.id}/stock`,
+        `/api/v1/products/${adjustingProduct.id}/stock`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -256,7 +263,7 @@ export default function InventoryPage() {
     setHistoryMovements([]);
     const token = localStorage.getItem('pos_token');
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/products/${product.id}/stock-history`, {
+      const res = await fetch(`/api/v1/products/${product.id}/stock-history`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setHistoryMovements(await res.json());
@@ -281,7 +288,7 @@ export default function InventoryPage() {
     <div className="min-h-screen bg-slate-50 p-8 font-sans relative">
       
       {/* Cabecera */}
-      <header className="flex justify-between items-center mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
             <Package className="text-emerald-600 w-8 h-8" /> 
@@ -291,7 +298,7 @@ export default function InventoryPage() {
             Gestión de Productos y Stock
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
           <button
             onClick={() => router.push('/inventory/kardex')}
             className="flex items-center gap-2 px-5 py-3 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-2xl font-bold transition-all active:scale-95"
@@ -310,9 +317,9 @@ export default function InventoryPage() {
       </header>
 
       {/* Tabla e Interfaz (Mismo diseño que te gustó) */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex gap-4 items-center bg-slate-50/50">
-          <div className="relative w-full sm:w-96">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden w-full max-w-full">
+        <div className="p-4 md:p-6 border-b border-slate-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-slate-50/50">
+          <div className="relative w-full sm:w-96 shrink-0">
             <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
             <input
               type="text"
@@ -432,7 +439,7 @@ export default function InventoryPage() {
                       <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Ej. Lomo Saltado" />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-bold text-slate-700 mb-1 block">Categoría</label>
                         <select required value={formData.categoryId || ''} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
@@ -443,13 +450,35 @@ export default function InventoryPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="text-sm font-bold text-slate-700 mb-1 block">Área de Prepración (KDS)</label>
-                        <select value={formData.stationId || ''} onChange={e => setFormData({...formData, stationId: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
-                          <option value="">Sin área asignada</option>
-                          {stations.map((st) => (
-                            <option key={st.id} value={st.id}>{st.name}</option>
-                          ))}
-                        </select>
+                        <label className="text-sm font-bold text-slate-700 mb-2 block">Áreas de Prepración (KDS)</label>
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                          {stations.length === 0 && <span className="text-sm text-slate-400">No hay áreas configuradas</span>}
+                          {stations.map((st) => {
+                            const isSelected = formData.stationIds?.includes(st.id);
+                            return (
+                              <label key={st.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer border transition-colors ${isSelected ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-100 hover:bg-slate-50'}`}>
+                                <input 
+                                  type="checkbox" 
+                                  value={st.id} 
+                                  checked={isSelected || false}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setFormData(prev => {
+                                      const current = prev.stationIds || [];
+                                      return {
+                                        ...prev,
+                                        stationIds: checked ? [...current, st.id] : current.filter(id => id !== st.id)
+                                      };
+                                    });
+                                  }}
+                                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500" 
+                                />
+                                <span className={`text-sm font-bold ${isSelected ? 'text-emerald-700' : 'text-slate-600'}`}>{st.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">El ticket se enviará a cada área seleccionada.</p>
                       </div>
                     </div>
 

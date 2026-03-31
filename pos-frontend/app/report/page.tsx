@@ -8,6 +8,7 @@ import {
   PiggyBank, Plus, X, Edit2, Trash2, List, Heart, CheckCircle2, RefreshCw, History, Utensils, Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useGuardedRoute } from '@/hooks/useGuardedRoute';
 
 // Interfaces
 interface Expense { id: string; amount: number; description: string; }
@@ -32,6 +33,7 @@ interface PastClosure {
 
 export default function CashRegisterPage() {
   const router = useRouter();
+  useGuardedRoute('caja');
   const [loading, setLoading] = useState(true);
   
   const [isShiftOpen, setIsShiftOpen] = useState(false);
@@ -87,7 +89,7 @@ export default function CashRegisterPage() {
 
     try {
       setLoading(true);
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
       const response = await fetch(`${API_URL}/api/v1/payments/closure`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });

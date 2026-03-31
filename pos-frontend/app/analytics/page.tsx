@@ -11,6 +11,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { toast } from 'sonner';
+import { useGuardedRoute } from '@/hooks/useGuardedRoute';
 
 interface KPI {
   totalRevenue: number;
@@ -32,6 +33,7 @@ const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#3b82f6', '#ec4899'];
 
 export default function AnalyticsPage() {
   const router = useRouter();
+  useGuardedRoute('analytics');
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'CUSTOM'>('TODAY');
@@ -44,7 +46,7 @@ export default function AnalyticsPage() {
     setLoading(true);
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch(`http://localhost:3000/api/v1/analytics?from=${from}&to=${to}`, {
+      const res = await fetch(`/api/v1/analytics?from=${from}&to=${to}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.status === 401) { router.push('/login'); return; }
@@ -130,18 +132,18 @@ export default function AnalyticsPage() {
 
       {/* Custom Date Form (Only visible if CUSTOM) */}
       {dateRange === 'CUSTOM' && (
-        <form onSubmit={handleCustomSearch} className="flex gap-4 mb-8 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm items-end w-fit">
-          <div>
+        <form onSubmit={handleCustomSearch} className="flex flex-col sm:flex-row sm:items-end gap-4 mb-8 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm w-full sm:w-fit">
+          <div className="w-full sm:w-auto">
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Desde</label>
             <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} 
-              className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 ring-violet-500 text-slate-700" required />
+              className="w-full sm:w-auto px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 ring-violet-500 text-slate-700" required />
           </div>
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Hasta</label>
             <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} 
-               className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 ring-violet-500 text-slate-700" required />
+               className="w-full sm:w-auto px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:ring-2 ring-violet-500 text-slate-700" required />
           </div>
-          <button type="submit" disabled={loading} className="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl flex items-center gap-2 min-w-[120px] justify-center">
+          <button type="submit" disabled={loading} className="w-full sm:w-auto px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl flex items-center gap-2 min-w-[120px] justify-center mt-2 sm:mt-0">
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Aplicar Rango'}
           </button>
         </form>

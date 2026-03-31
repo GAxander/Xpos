@@ -15,8 +15,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      {/* El contenedor principal ahora divide la pantalla: Menú a la izquierda, contenido a la derecha */}
-      <body className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 font-sans antialiased">
+      {/* El contenedor principal ahora divide la pantalla: Menú a la izquierda (o arriba en móvil), contenido al centro */}
+      <body className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 font-sans antialiased">
         
         <Toaster position="top-right" richColors closeButton theme="light" />
         

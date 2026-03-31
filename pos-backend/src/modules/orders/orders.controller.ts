@@ -60,6 +60,16 @@ export class OrdersController {
     return this.ordersService.removeOrderItem(orderId, itemId);
   }
 
+  @Patch(':orderId/items/:itemId/notes') // PATCH /api/v1/orders/:orderId/items/:itemId/notes
+  async updateItemNotes(
+    @Param('orderId') orderId: string,
+    @Param('itemId') itemId: string,
+    @Body('notes') notes: string
+  ) {
+    const realOrderId = orderId.split('-adic-')[0]; // En caso llegue un ID de ticket sub-dividido
+    return this.ordersService.updateItemNotes(realOrderId, itemId, notes);
+  }
+
   @Patch(':orderId/items/:itemId/serve') // PATCH /api/v1/orders/:orderId/items/:itemId/serve
   async markItemAsServed(
     @Param('orderId') orderId: string,

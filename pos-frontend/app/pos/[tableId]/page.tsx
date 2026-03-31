@@ -61,8 +61,12 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
   const [searchTerm, setSearchTerm] = useState('');
   
   const [showCheckout, setShowCheckout] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const [tableName, setTableName] = useState<string>('');
 
+  // Estados para Editar Notas de ítems enviados
+  const [editingNoteItemId, setEditingNoteItemId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState<string>('');
   // Estados para Separar Cuentas
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
   const [selectedSplitItems, setSelectedSplitItems] = useState<string[]>([]);
@@ -101,7 +105,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
   useEffect(() => {
     const cached = localStorage.getItem('pos_restaurant_config');
     if (cached) { try { setRestaurantConfig(JSON.parse(cached)); } catch { /**/ } }
-    fetch('http://localhost:3000/api/v1/restaurant-config')
+    fetch('/api/v1/restaurant-config')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) { setRestaurantConfig(d); localStorage.setItem('pos_restaurant_config', JSON.stringify(d)); } })
       .catch(() => { /**/ });
@@ -120,9 +124,9 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
         const headers = { 'Authorization': `Bearer ${token}` };
         
         const [categoriesRes, productsRes, activeOrderRes] = await Promise.all([
-          fetch('http://localhost:3000/api/v1/inventory/categories', { headers }),
-          fetch('http://localhost:3000/api/v1/products', { headers }),
-          fetch(`http://localhost:3000/api/v1/orders/table/${tableId}/active`, { headers })
+          fetch('/api/v1/inventory/categories', { headers }),
+          fetch('/api/v1/products', { headers }),
+          fetch(`/api/v1/orders/table/${tableId}/active`, { headers })
         ]);
 
         if (categoriesRes.ok && productsRes.ok) {
@@ -262,7 +266,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     try {
       let response;
       if (activeOrderId) {
-        response = await fetch(`http://localhost:3000/api/v1/orders/${activeOrderId}/items`, {
+        response = await fetch(`/api/v1/orders/${activeOrderId}/items`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -281,7 +285,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
           })
         });
       } else {
-        response = await fetch('http://localhost:3000/api/v1/orders', {
+        response = await fetch('/api/v1/orders', {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -330,7 +334,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     setSubmitting(true);
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`http://localhost:3000/api/v1/orders/${activeOrderId}/items/${confirmAction.itemId}`, {
+      const response = await fetch(`/api/v1/orders/${activeOrderId}/items/${confirmAction.itemId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -365,7 +369,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     setSubmitting(true);
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`http://localhost:3000/api/v1/orders/${activeOrderId}`, {
+      const response = await fetch(`/api/v1/orders/${activeOrderId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -397,7 +401,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     setLoadingTables(true);
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch('http://localhost:3000/api/v1/floor/zones', {
+      const res = await fetch('/api/v1/floor/zones', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -425,7 +429,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     setSubmitting(true);
     try {
       const token = localStorage.getItem('pos_token');
-      const response = await fetch(`http://localhost:3000/api/v1/orders/${activeOrderId}/table`, {
+      const response = await fetch(`/api/v1/orders/${activeOrderId}/table`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ newTableId: selectedNewTableId })
@@ -468,7 +472,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     setSubmitting(true);
     try {
       const token = localStorage.getItem('pos_token');
-      const response = await fetch(`http://localhost:3000/api/v1/payments/${paymentId}`, {
+      const response = await fetch(`/api/v1/payments/${paymentId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -513,14 +517,14 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
 
       if (editingPaymentId) {
         // Actualizar pago existente
-        response = await fetch(`http://localhost:3000/api/v1/payments/${editingPaymentId}`, {
+        response = await fetch(`/api/v1/payments/${editingPaymentId}`, {
           method: 'PATCH',
           headers,
           body: JSON.stringify(bodyPayload)
         });
       } else {
         // Crear nuevo pago
-        response = await fetch('http://localhost:3000/api/v1/payments', {
+        response = await fetch('/api/v1/payments', {
           method: 'POST',
           headers,
           body: JSON.stringify(bodyPayload)
@@ -559,6 +563,30 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
       toast.error("Error de red al cobrar");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSaveExistingNote = async (itemId: string, newNote: string) => {
+    if (!activeOrderId) return;
+    try {
+      const token = localStorage.getItem('pos_token');
+      const response = await fetch(`/api/v1/orders/${activeOrderId}/items/${itemId}/notes`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ notes: newNote })
+      });
+      if (response.ok) {
+        setExistingItems(prev => prev.map(i => i.id === itemId ? { ...i, notes: newNote } : i));
+        setEditingNoteItemId(null);
+        toast.success("Nota actualizada en cocina");
+      } else {
+        toast.error("Error al actualizar la nota");
+      }
+    } catch {
+      toast.error("Error de conexión");
     }
   };
 
@@ -658,7 +686,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans print:hidden">
       
       {/* LEFT PANE - MENU SECTION */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Header */}
         <header className="bg-white px-6 py-4 flex items-center justify-between border-b border-slate-200 shadow-sm z-10 shrink-0">
           <div className="flex items-center gap-4">
@@ -717,7 +745,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
         </div>
 
         {/* Products Grid */}
-        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth pb-24 lg:pb-6">
           {filteredProducts.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400">
               <UtensilsCrossed className="w-16 h-16 mb-4 text-slate-300" />
@@ -749,21 +777,61 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
             </div>
           )}
         </div>
+
+        {/* Mobile Floating Cart Summary */}
+        <div className="lg:hidden absolute bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 z-30 transform transition-all">
+          <button 
+            onClick={() => setIsCartOpen(true)}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all text-white font-black py-4 px-5 rounded-2xl flex items-center justify-between shadow-xl shadow-emerald-200/50"
+          >
+            <div className="flex items-center gap-3 text-[15px]">
+              <div className="relative">
+                <ShoppingCart className="w-5 h-5" />
+                <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
+                  {cart.length + existingItems.length}
+                </span>
+              </div>
+              <span className="hidden sm:inline">Ver Pedido</span>
+            </div>
+            <span className="text-lg tracking-tight">S/ {totalAmount.toFixed(2)}</span>
+          </button>
+        </div>
       </div>
 
+      {/* Mobile Cart Backdrop */}
+      {isCartOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 transition-opacity" 
+          onClick={() => setIsCartOpen(false)}
+        />
+      )}
+
       {/* RIGHT PANE - TICKET (CART) */}
-      <div className="w-[380px] bg-white border-l border-slate-200 flex flex-col shadow-xl z-20 shrink-0">
+      <div className={`
+        fixed inset-y-0 right-0 z-50 w-[90%] sm:w-[400px] bg-white border-l border-slate-200 flex flex-col shadow-2xl 
+        transform transition-transform duration-300 ease-in-out
+        ${isCartOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+        lg:static lg:z-20 lg:shrink-0 lg:w-[380px] lg:shadow-none lg:border-l lg:border-slate-200
+      `}>
         
         {/* Cart Header */}
-        <div className="p-5 border-b border-slate-100 bg-slate-50 shrink-0">
+        <div className="p-4 md:p-5 border-b border-slate-100 bg-slate-50 shrink-0">
           <div className="flex justify-between items-center mb-3">
-            <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+            <h2 className="text-base md:text-lg font-black text-slate-800 flex items-center gap-2">
               <ReceiptText className="w-5 h-5 text-emerald-600" />
               Ticket de Venta
             </h2>
-            <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2.5 py-1 rounded-md">
-              Mesa {tableName || tableId.slice(0,4)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="bg-emerald-100 text-emerald-700 text-[11px] md:text-xs font-bold px-2.5 py-1 rounded-md max-w-[100px] truncate">
+                Mesa {tableName || tableId.slice(0,4)}
+              </span>
+              <button 
+                onClick={() => setIsCartOpen(false)}
+                className="lg:hidden p-1.5 bg-slate-200 hover:bg-slate-300 active:scale-90 rounded-full text-slate-600 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="flex items-center justify-between text-sm text-slate-500 font-medium">
             <span>{existingItems.length + cart.length} ítems</span>
@@ -802,6 +870,18 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
                           <span className="font-black text-slate-700 text-sm">
                             S/ {(item.quantity * item.unitPrice).toFixed(2)}
                           </span>
+                          {!item.isPaid && (
+                            <button 
+                              onClick={() => {
+                                setEditingNoteItemId(item.id);
+                                setEditingNoteText(item.notes || '');
+                              }}
+                              className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Editar nota enviada"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
                           <button 
                             onClick={() => handleRemoveExistingItemRequest(item)}
                             className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
@@ -811,10 +891,40 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
                           </button>
                         </div>
                       </div>
-                      {item.notes && (
-                        <div className="text-xs text-slate-500 italic mt-1 bg-white px-2 py-1 rounded border border-slate-200">
-                          "{item.notes}"
+                      
+                      {editingNoteItemId === item.id ? (
+                        <div className="flex gap-2 mt-2">
+                          <input 
+                            type="text" 
+                            autoFocus
+                            placeholder="Notas (ej. sin lactosa)" 
+                            value={editingNoteText}
+                            onChange={(e) => setEditingNoteText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveExistingNote(item.id, editingNoteText);
+                              if (e.key === 'Escape') setEditingNoteItemId(null);
+                            }}
+                            className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                          />
+                          <button 
+                            onClick={() => handleSaveExistingNote(item.id, editingNoteText)}
+                            className="p-1 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-lg text-xs font-bold px-2 transition-colors"
+                          >
+                            Guardar
+                          </button>
+                          <button 
+                            onClick={() => setEditingNoteItemId(null)}
+                            className="p-1 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-lg text-xs font-bold px-2 transition-colors"
+                          >
+                            Cancelar
+                          </button>
                         </div>
+                      ) : (
+                        item.notes && (
+                          <div className="text-xs text-slate-500 italic mt-1 bg-white px-2 py-1 rounded border border-slate-200">
+                            "{item.notes}"
+                          </div>
+                        )
                       )}
                     </div>
                   ))}

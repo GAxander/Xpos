@@ -303,6 +303,20 @@ export class OrdersService {
     });
   }
 
+  async updateItemNotes(orderId: string, itemId: string, notes: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+    if (order.status !== 'OPEN') throw new BadRequestException(`Order ${orderId} is not open`);
+
+    return this.prisma.orderItem.update({
+      where: { id: itemId, orderId: orderId },
+      data: { notes }
+    });
+  }
+
   async markItemAsServed(orderId: string, itemId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -388,7 +402,7 @@ export class OrdersService {
         items: {
           include: {
             product: {
-              include: { category: true, station: true }
+              include: { category: true, stations: true }
             }
           },
           orderBy: [

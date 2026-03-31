@@ -41,8 +41,9 @@ export class CreateProductDto {
   categoryId: string;
 
   @IsOptional()
-  @IsUUID()
-  stationId?: string;
+  @IsArray()
+  @IsUUID('all', { each: true })
+  stationIds?: string[];
 
   @IsNumber()
   @Min(0)

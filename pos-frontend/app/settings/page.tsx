@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Settings, Plus, Map, Users, Square, X, Loader2, Trash2, Edit, Store, Phone, MapPin, FileText, ImagePlus, Save, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { useGuardedRoute } from '@/hooks/useGuardedRoute';
 
 interface Table {
   id: string;
@@ -30,6 +31,7 @@ interface RestaurantConfig {
 
 export default function SettingsPage() {
   const router = useRouter();
+  useGuardedRoute('configuracion');
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -51,7 +53,7 @@ export default function SettingsPage() {
   const fetchConfig = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const res = await fetch('http://localhost:3000/api/v1/restaurant-config', {
+      const res = await fetch('/api/v1/restaurant-config', {
         headers: { 'Authorization': `Bearer ${token}` },
         cache: 'no-store'
       });
@@ -62,7 +64,7 @@ export default function SettingsPage() {
   const fetchZones = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('http://localhost:3000/api/v1/floor/zones', {
+      const response = await fetch('/api/v1/floor/zones', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -82,7 +84,7 @@ export default function SettingsPage() {
     setIsSavingConfig(true);
     const token = localStorage.getItem('pos_token');
     try {
-      const res = await fetch('http://localhost:3000/api/v1/restaurant-config', {
+      const res = await fetch('/api/v1/restaurant-config', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -135,8 +137,8 @@ export default function SettingsPage() {
     const token = localStorage.getItem('pos_token');
     const isEditing = zoneForm.id !== '';
     const url = isEditing 
-      ? `http://localhost:3000/api/v1/floor/zone/${zoneForm.id}`
-      : 'http://localhost:3000/api/v1/floor/zone';
+      ? `/api/v1/floor/zone/${zoneForm.id}`
+      : '/api/v1/floor/zone';
     const method = isEditing ? 'PATCH' : 'POST';
 
     try {
@@ -173,7 +175,7 @@ export default function SettingsPage() {
 
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`http://localhost:3000/api/v1/floor/zone/${id}`, {
+      const response = await fetch(`/api/v1/floor/zone/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -206,8 +208,8 @@ export default function SettingsPage() {
     const token = localStorage.getItem('pos_token');
     const isEditing = tableForm.id !== '';
     const url = isEditing 
-      ? `http://localhost:3000/api/v1/floor/table/${tableForm.id}`
-      : 'http://localhost:3000/api/v1/floor/table';
+      ? `/api/v1/floor/table/${tableForm.id}`
+      : '/api/v1/floor/table';
     const method = isEditing ? 'PATCH' : 'POST';
     
     // Alfanumérico, así que se envía como String
@@ -248,7 +250,7 @@ export default function SettingsPage() {
 
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`http://localhost:3000/api/v1/floor/table/${id}`, {
+      const response = await fetch(`/api/v1/floor/table/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -281,7 +283,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-8 font-sans relative">
-      <header className="flex justify-between items-center mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
             <Settings className="text-slate-600 w-8 h-8" /> 
@@ -557,7 +559,7 @@ export default function SettingsPage() {
               </button>
             </div>
             <form onSubmit={handleSaveTable} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-bold text-slate-700 mb-1 block">Identificador</label>
                   <input required type="text" value={tableForm.number} onChange={e => setTableForm({...tableForm, number: e.target.value.toUpperCase()})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 outline-none uppercase" placeholder="Ej. A1, T2" />

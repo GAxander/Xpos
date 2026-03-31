@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChefHat, Clock, AlertTriangle, ArrowLeft, UtensilsCrossed, XCircle, Undo2, Check, ArrowRightLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { useGuardedRoute } from '@/hooks/useGuardedRoute';
 
 // Interfaces actualizadas para incluir status
 interface KitchenItem {
@@ -17,11 +18,11 @@ interface KitchenItem {
     category?: {
       name: string;
     };
-    station?: {
+    stations?: {
       id: string;
       name: string;
       colorHex: string;
-    } | null;
+    }[];
   };
 }
 
@@ -76,6 +77,7 @@ const OrderTimer = ({ createdAt }: { createdAt: string }) => {
 
 export default function CocinaPage() {
   const router = useRouter();
+  useGuardedRoute('cocina');
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [ackedOrders, setAckedOrders] = useState<string[]>([]);
@@ -120,7 +122,7 @@ export default function CocinaPage() {
     const token = localStorage.getItem('pos_token');
     if (!token) return router.push('/login');
     try {
-      const response = await fetch('http://localhost:3000/api/v1/orders/kitchen', {
+      const response = await fetch('/api/v1/orders/kitchen', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -149,6 +151,12 @@ export default function CocinaPage() {
                     toast.error(`¡PLATO CANCELADO EN ${tableName}!`, {
                       description: `Se canceló: ${newItem.quantity}x ${newItem.product.name}. ¡NO PREPARAR!`,
                       duration: 8000,
+                    });
+                    playAlertSound();
+                  } else if (oldItem && oldItem.notes !== newItem.notes && newItem.status !== 'CANCELED') {
+                    toast.warning(`¡NOTA ALERTA EN ${tableName}!`, {
+                      description: `${newItem.quantity}x ${newItem.product.name} cambió su nota a: "${newItem.notes || 'Sin nota'}".`,
+                      duration: 10000,
                     });
                     playAlertSound();
                   }
@@ -191,7 +199,7 @@ export default function CocinaPage() {
 
     try {
       const token = localStorage.getItem('pos_token');
-      await fetch(`http://localhost:3000/api/v1/orders/${orderId}/items/${itemId}/serve`, {
+      await fetch(`/api/v1/orders/${orderId}/items/${itemId}/serve`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -219,7 +227,7 @@ export default function CocinaPage() {
 
     try {
       const token = localStorage.getItem('pos_token');
-      await fetch(`http://localhost:3000/api/v1/orders/${orderId}/items/${itemId}/unserve`, {
+      await fetch(`/api/v1/orders/${orderId}/items/${itemId}/unserve`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -246,7 +254,7 @@ export default function CocinaPage() {
 
     try {
       const token = localStorage.getItem('pos_token');
-      await fetch(`http://localhost:3000/api/v1/orders/${orderId}/serve`, {
+      await fetch(`/api/v1/orders/${orderId}/serve`, {
         method: 'PATCH',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -272,7 +280,7 @@ export default function CocinaPage() {
     const fetchStations = async () => {
       const token = localStorage.getItem('pos_token');
       try {
-        const response = await fetch('http://localhost:3000/api/v1/kitchen-stations', {
+        const response = await fetch('/api/v1/kitchen-stations', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) setStations(await response.json());
@@ -301,9 +309,9 @@ export default function CocinaPage() {
     <div className="min-h-screen bg-slate-900 p-4 md:p-6 font-sans">
       
       {/* HEADER */}
-      <header className="flex items-center justify-between bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-xl mb-6">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.push('/')} className="p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors text-white">
+      <header className="flex flex-col md:flex-row items-start md:items-center justify-between bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-xl mb-6 gap-4">
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <button onClick={() => router.push('/')} className="p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors text-white mt-1.5 md:mt-0 self-start md:self-auto">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div>
@@ -314,13 +322,13 @@ export default function CocinaPage() {
             <p className="text-slate-400 text-sm font-medium mt-1">Sincronización en tiempo real</p>
           </div>
         </div>
-        <div className="flex gap-4">
-          <div className="bg-slate-700 px-4 py-2 rounded-xl border border-slate-600 flex items-center">
-            <span className="text-slate-300 font-bold text-sm mr-2">Pedidos Terminados:</span>
+        <div className="flex gap-3 md:gap-4 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 scrollbar-none snap-x">
+          <div className="bg-slate-700 px-4 py-2 rounded-xl border border-slate-600 flex items-center flex-1 md:flex-none justify-between md:justify-start min-w-[160px] snap-center">
+            <span className="text-slate-300 font-bold text-sm mr-2 leading-tight">Pedidos<br className="md:hidden"/> Terminados:</span>
             <span className="text-2xl font-black text-slate-300">{finishedCount}</span>
           </div>
-          <div className="bg-slate-700 px-4 py-2 rounded-xl border border-slate-600 flex items-center">
-            <span className="text-slate-300 font-bold text-sm mr-2">Pedidos Activos:</span>
+          <div className="bg-slate-700 px-4 py-2 rounded-xl border border-slate-600 flex items-center flex-1 md:flex-none justify-between md:justify-start min-w-[160px] snap-center">
+            <span className="text-slate-300 font-bold text-sm mr-2 leading-tight">Pedidos<br className="md:hidden"/> Activos:</span>
             <span className="text-2xl font-black text-emerald-400">
               {orders.filter(o => !ackedOrders.includes(o.id) && o.status !== 'CANCELLED').length}
             </span>
@@ -370,8 +378,7 @@ export default function CocinaPage() {
             if (ackedOrders.includes(o.id)) return false;
             // Si no hay filtro, mostrar todas
             if (!selectedStation) return true;
-            // Mostrar ticket si tiene AL MENOS UN producto de la estación seleccionada
-            return o.items.some(i => i.product.station?.id === selectedStation);
+            return o.items.some(i => i.product.stations?.some((s: any) => s.id === selectedStation));
           }).map((order) => {
             // NUEVO: Verificamos si la orden completa fue cancelada por el mozo
             const isOrderCanceled = order.status === 'CANCELLED';
@@ -422,7 +429,7 @@ export default function CocinaPage() {
                     {(() => {
                       const visibleItems = order.items.filter(item => {
                          if (!selectedStation) return true;
-                         return item.product.station?.id === selectedStation;
+                         return item.product.stations?.some((s: any) => s.id === selectedStation);
                       });
 
                       const rootItems = visibleItems.filter(item => {
@@ -435,7 +442,8 @@ export default function CocinaPage() {
                          const isItemCanceled = item.status === 'CANCELED' || item.status === 'CANCELLED';
                          const isItemServed = item.status === 'SERVED';
                          const catName = item.product?.category?.name?.toUpperCase() || '';
-                         const station = item.product?.station;
+                         // Si hay filtro, usamos el color de la estación seleccionada, de lo contrario la primera
+                         const station = item.product?.stations?.find((s: any) => s.id === selectedStation) || item.product?.stations?.[0];
                          const isBar = ['JUGOS', 'CAFES', 'BEBIDAS', 'BAR', 'COCTELERIA', 'REFRESCOS'].includes(catName);
                          const parentItem = item.parentItemId ? order.items.find(i => i.id === item.parentItemId) : null;
                          const parentName = parentItem?.product?.name || 'COMBO';

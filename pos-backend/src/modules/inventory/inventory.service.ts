@@ -13,7 +13,6 @@ export class InventoryService {
     return this.prisma.category.create({
       data: {
         name: data.name,
-        printerRoute: data.printerRoute,
       },
     });
   }
@@ -31,7 +30,6 @@ export class InventoryService {
       where: { id },
       data: {
         name: data.name,
-        printerRoute: data.printerRoute,
       },
     });
   }
@@ -43,13 +41,22 @@ export class InventoryService {
   }
 
   async createProduct(data: CreateProductDto) {
+    const stationIds = data.stationIds || [];
     return this.prisma.product.create({
       data: {
         categoryId: data.categoryId,
         name: data.name,
         price: data.price,
         isActive: data.isActive ?? true,
+        ...(stationIds.length > 0 && {
+          stations: {
+            connect: stationIds.map(id => ({ id })),
+          },
+        }),
       },
+      include: {
+        stations: true,
+      }
     });
   }
 

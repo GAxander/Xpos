@@ -43,7 +43,7 @@ export default function KitchenStationsPage() {
   const fetchStations = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('http://localhost:3000/api/v1/kitchen-stations', {
+      const response = await fetch('/api/v1/kitchen-stations', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -87,8 +87,8 @@ export default function KitchenStationsPage() {
     
     const isEditing = formData.id !== '';
     const url = isEditing
-      ? `http://localhost:3000/api/v1/kitchen-stations/${formData.id}`
-      : 'http://localhost:3000/api/v1/kitchen-stations';
+      ? `/api/v1/kitchen-stations/${formData.id}`
+      : '/api/v1/kitchen-stations';
     
     const method = isEditing ? 'PATCH' : 'POST';
     
@@ -128,7 +128,7 @@ export default function KitchenStationsPage() {
     
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`http://localhost:3000/api/v1/kitchen-stations/${id}`, {
+      const response = await fetch(`/api/v1/kitchen-stations/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

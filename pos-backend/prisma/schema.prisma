@@ -18,10 +18,6 @@ enum TableStatus {
   WAITING_FOOD
 }
 
-enum PrinterRoute {
-  KITCHEN
-  BAR
-}
 
 enum OrderStatus {
   OPEN
@@ -94,7 +90,6 @@ model Category {
   restaurant   Restaurant?  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   name         String
-  printerRoute PrinterRoute @map("printer_route")
   products     Product[]
 
   @@map("categories")
@@ -114,9 +109,8 @@ model Product {
   categoryId  String       @map("category_id") @db.Uuid
   category    Category     @relation(fields: [categoryId], references: [id])
 
-  // Áreas de Preparación (Cocina, Bar, Parrilla...)
-  stationId   String?      @map("station_id") @db.Uuid
-  station     KitchenStation? @relation(fields: [stationId], references: [id])
+  // Áreas de Preparación (Cocina, Bar, Parrilla...) -> Ahora Multiple (Many-to-Many)
+  stations     KitchenStation[]
 
   // 2. Conexiones de vuelta que Prisma estaba pidiendo a gritos
   recipeItems RecipeItem[]
@@ -323,6 +317,7 @@ model User {
   name         String
   email        String   @unique
   password     String
+  pin          String?  // PIN de 4 dígitos para login rápido en POS
   role         Role     @default(CASHIER)
   isActive     Boolean  @default(true) @map("is_active")
   allowedViews String[] @default([]) @map("allowed_views")

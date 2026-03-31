@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, Plus, X, Loader2, Edit, UserX, UserCheck, Key, Shield, ChefHat, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
+import { useGuardedRoute } from '@/hooks/useGuardedRoute';
 
 // All views available in the system
 const ALL_VIEWS = [
@@ -38,6 +39,7 @@ interface User {
   isActive: boolean;
   allowedViews: string[];
   createdAt: string;
+  pin?: string;
 }
 
 const emptyForm = {
@@ -45,12 +47,14 @@ const emptyForm = {
   name: '',
   email: '',
   password: '',
+  pin: '',
   role: 'CASHIER' as User['role'],
   allowedViews: ['pos', 'cocina'] as string[],
 };
 
 export default function UsersPage() {
   const router = useRouter();
+  useGuardedRoute('usuarios');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -62,7 +66,7 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/v1/users', {
+      const res = await fetch('/api/v1/users', {
         headers: { Authorization: `Bearer ${token()}` },
       });
       if (res.status === 401) { router.push('/login'); return; }
@@ -80,7 +84,7 @@ export default function UsersPage() {
 
   const openCreate = () => { setForm({ ...emptyForm }); setShowModal(true); };
   const openEdit = (u: User) => {
-    setForm({ id: u.id, name: u.name, email: u.email, password: '', role: u.role, allowedViews: u.allowedViews });
+    setForm({ id: u.id, name: u.name, email: u.email, password: '', pin: u.pin || '', role: u.role, allowedViews: u.allowedViews });
     setShowModal(true);
   };
 
@@ -98,12 +102,13 @@ export default function UsersPage() {
     setIsSaving(true);
     const isEditing = form.id !== '';
     const url = isEditing
-      ? `http://localhost:3000/api/v1/users/${form.id}`
-      : 'http://localhost:3000/api/v1/users';
+      ? `/api/v1/users/${form.id}`
+      : '/api/v1/users';
     const method = isEditing ? 'PATCH' : 'POST';
 
     const body: any = { name: form.name, email: form.email, role: form.role, allowedViews: form.allowedViews };
     if (form.password) body.password = form.password;
+    if (form.pin) body.pin = form.pin;
     if (!isEditing) body.password = form.password; // required on create
 
     try {
@@ -128,7 +133,7 @@ export default function UsersPage() {
     const action = u.isActive ? 'desactivar' : 'activar';
     if (!confirm(`¿Estás seguro de ${action} al usuario ${u.name}?`)) return;
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/users/${u.id}`, {
+      const res = await fetch(`/api/v1/users/${u.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
         body: JSON.stringify({ isActive: !u.isActive }),
@@ -147,7 +152,7 @@ export default function UsersPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-8 font-sans">
       {/* Header */}
-      <header className="flex justify-between items-center mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
             <Users className="text-violet-600 w-8 h-8" />
@@ -289,14 +294,25 @@ export default function UsersPage() {
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none text-slate-800" />
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <Key className="w-3 h-3" />
-                  {form.id ? 'Nueva Contraseña (dejar vacío para no cambiar)' : 'Contraseña *'}
-                </label>
-                <input required={!form.id} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none text-slate-800" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <Key className="w-3 h-3" />
+                    {form.id ? 'Cambiar Contraseña' : 'Contraseña *'}
+                  </label>
+                  <input required={!form.id} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none text-slate-800" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <Calculator className="w-3 h-3" />
+                    PIN (4 dígitos)
+                  </label>
+                  <input type="text" maxLength={4} pattern="[0-9]*" value={form.pin} onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '') }))}
+                    placeholder="Ej. 1234"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none text-slate-800 font-bold tracking-widest text-center" />
+                </div>
               </div>
 
               {/* Views — only shown when not ADMIN */}

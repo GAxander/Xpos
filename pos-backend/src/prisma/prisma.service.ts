@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
 
 const TENANT_MODELS = [
-  'Zone', 'Table', 'Category', 'Product', 'InventoryItem',
+  'Zone', 'Category', 'Product', 'InventoryItem',
   'KitchenStation', 'Order', 'CashShift', 'User'
 ];
 

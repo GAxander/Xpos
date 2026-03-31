@@ -4,15 +4,16 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Layers, Plus, Search, Edit, Trash2, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useGuardedRoute } from '@/hooks/useGuardedRoute';
 
 interface Category {
   id: string;
   name: string;
-  printerRoute: 'KITCHEN' | 'BAR';
 }
 
 export default function CategoriesPage() {
   const router = useRouter();
+  useGuardedRoute('categorias');
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,14 +21,14 @@ export default function CategoriesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Category>({
-    id: '', name: '', printerRoute: 'KITCHEN'
+    id: '', name: ''
   });
 
   const fetchCategories = async () => {
     const token = localStorage.getItem('pos_token');
     try {
       console.log("Fetching categories...");
-      const response = await fetch('http://localhost:3000/api/v1/inventory/categories', {
+      const response = await fetch('/api/v1/inventory/categories', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       console.log("Categories response status:", response.status);
@@ -59,15 +60,13 @@ export default function CategoriesPage() {
     
     const isEditing = formData.id !== '';
     const url = isEditing
-      ? `http://localhost:3000/api/v1/inventory/category/${formData.id}`
-      : 'http://localhost:3000/api/v1/inventory/category';
+      ? `/api/v1/inventory/category/${formData.id}`
+      : '/api/v1/inventory/category';
     
     const method = isEditing ? 'PATCH' : 'POST';
     
-    // Solo extraemos los campos que el backend espera y permite
     const bodyData = {
       name: formData.name,
-      printerRoute: formData.printerRoute,
     };
 
     try {
@@ -99,7 +98,7 @@ export default function CategoriesPage() {
     
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`http://localhost:3000/api/v1/inventory/category/${id}`, {
+      const response = await fetch(`/api/v1/inventory/category/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -119,7 +118,7 @@ export default function CategoriesPage() {
     if (category) {
       setFormData(category);
     } else {
-      setFormData({ id: '', name: '', printerRoute: 'KITCHEN' });
+      setFormData({ id: '', name: '' });
     }
     setIsModalOpen(true);
   };
@@ -138,7 +137,7 @@ export default function CategoriesPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-8 font-sans relative">
-      <header className="flex justify-between items-center mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
             <Layers className="text-indigo-600 w-8 h-8" /> 
@@ -157,9 +156,9 @@ export default function CategoriesPage() {
         </button>
       </header>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex gap-4 items-center bg-slate-50/50">
-          <div className="relative w-full sm:w-96">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden w-full max-w-full">
+        <div className="p-4 md:p-6 border-b border-slate-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-slate-50/50">
+          <div className="relative w-full sm:w-96 shrink-0">
             <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
             <input
               type="text"
@@ -176,7 +175,6 @@ export default function CategoriesPage() {
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100 text-xs uppercase tracking-widest text-slate-400 font-bold">
                 <th className="p-5">Nombre de Categoría</th>
-                <th className="p-5">Ruta de Impresión</th>
                 <th className="p-5 text-center">Acciones</th>
               </tr>
             </thead>
@@ -185,11 +183,6 @@ export default function CategoriesPage() {
                 <tr key={category.id} className="hover:bg-slate-50/80 transition-colors group">
                   <td className="p-5 font-bold text-slate-800">
                     {category.name}
-                  </td>
-                  <td className="p-5 font-medium">
-                    <span className={`px-3 py-1 rounded-lg text-xs uppercase tracking-wider ${category.printerRoute === 'KITCHEN' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {category.printerRoute === 'KITCHEN' ? 'Cocina' : 'Bar'}
-                    </span>
                   </td>
                   <td className="p-5 text-center">
                     <div className="flex justify-center gap-2">
@@ -229,19 +222,6 @@ export default function CategoriesPage() {
               <div>
                 <label className="text-sm font-bold text-slate-700 mb-1 block">Nombre de la Categoría</label>
                 <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Ej. Desayunos" />
-              </div>
-              
-              <div>
-                <label className="text-sm font-bold text-slate-700 mb-1 block">Ruta de Impresión</label>
-                <select 
-                  value={formData.printerRoute} 
-                  onChange={e => setFormData({...formData, printerRoute: e.target.value as 'KITCHEN' | 'BAR'})} 
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                >
-                  <option value="KITCHEN">Cocina</option>
-                  <option value="BAR">Bar</option>
-                </select>
-                <p className="text-xs text-slate-500 mt-2">Los tickets de esta categoría se imprimirán en esta estación.</p>
               </div>
 
               <div className="pt-4">

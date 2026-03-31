@@ -54,7 +54,7 @@ export default function SuperAdminPage() {
   const fetchRestaurants = async () => {
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch('http://localhost:3000/api/v1/saas/restaurants', {
+      const res = await fetch('/api/v1/saas/restaurants', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -74,7 +74,7 @@ export default function SuperAdminPage() {
   const toggleStatus = async (id: string, currentStatus: boolean) => {
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch(`http://localhost:3000/api/v1/saas/restaurants/${id}/status`, {
+      const res = await fetch(`/api/v1/saas/restaurants/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ isActive: !currentStatus })
@@ -91,7 +91,7 @@ export default function SuperAdminPage() {
   const renewSubscription = async (id: string, days: number) => {
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch(`http://localhost:3000/api/v1/saas/restaurants/${id}/renew`, {
+      const res = await fetch(`/api/v1/saas/restaurants/${id}/renew`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ days })
@@ -112,7 +112,7 @@ export default function SuperAdminPage() {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('pos_token');
-      const res1 = await fetch('http://localhost:3000/api/v1/saas/restaurants', {
+      const res1 = await fetch('/api/v1/saas/restaurants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -123,7 +123,7 @@ export default function SuperAdminPage() {
       if (!res1.ok) throw new Error('Error al crear el restaurante');
       const newRestaurant = await res1.json();
       
-      const res2 = await fetch(`http://localhost:3000/api/v1/saas/restaurants/${newRestaurant.id}/admins`, {
+      const res2 = await fetch(`/api/v1/saas/restaurants/${newRestaurant.id}/admins`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: adminName, email: adminEmail, password: adminPassword })
@@ -166,7 +166,7 @@ export default function SuperAdminPage() {
     // Fetch Admin details
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch(`http://localhost:3000/api/v1/saas/restaurants/${r.id}/admin`, {
+      const res = await fetch(`/api/v1/saas/restaurants/${r.id}/admin`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -184,7 +184,7 @@ export default function SuperAdminPage() {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch(`http://localhost:3000/api/v1/saas/restaurants/${editingId}`, {
+      const res = await fetch(`/api/v1/saas/restaurants/${editingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -225,7 +225,7 @@ export default function SuperAdminPage() {
          payload.password = editAdminPassword;
       }
 
-      const res = await fetch(`http://localhost:3000/api/v1/saas/restaurants/${editingId}/admin`, {
+      const res = await fetch(`/api/v1/saas/restaurants/${editingId}/admin`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload)

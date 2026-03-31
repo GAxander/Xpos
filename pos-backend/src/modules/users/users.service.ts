@@ -7,6 +7,7 @@ export interface CreateUserDto {
   name: string;
   email: string;
   password: string;
+  pin?: string;
   role?: 'ADMIN' | 'CASHIER' | 'WAITER';
   allowedViews?: string[];
 }
@@ -15,6 +16,7 @@ export interface UpdateUserDto {
   name?: string;
   email?: string;
   password?: string;
+  pin?: string;
   role?: 'ADMIN' | 'CASHIER' | 'WAITER';
   allowedViews?: string[];
   isActive?: boolean;
@@ -31,6 +33,7 @@ export class UsersService {
         name: true,
         email: true,
         role: true,
+        pin: true,
         isActive: true,
         allowedViews: true,
         createdAt: true,
@@ -47,6 +50,7 @@ export class UsersService {
         name: true,
         email: true,
         role: true,
+        pin: true,
         isActive: true,
         allowedViews: true,
         createdAt: true,
@@ -76,6 +80,7 @@ export class UsersService {
         name: dto.name,
         email: dto.email,
         password: hashedPassword,
+        pin: dto.pin || null,
         role: dto.role ?? 'CASHIER',
         allowedViews: dto.allowedViews ?? [],
       },
