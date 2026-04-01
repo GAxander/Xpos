@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Store, Users, Receipt, Building, Mail, Lock, User, Check, X, Building2, Phone, Crown, CalendarPlus, Edit } from 'lucide-react';
+import { Plus, Search, Store, Users, Receipt, Building, Mail, Lock, User, Check, X, Building2, Phone, Crown, CalendarPlus, Edit, LayoutDashboard, Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import { PlansManager, SubscriptionPlan } from './components/PlansManager';
+import { SuperAdminProfile } from './components/SuperAdminProfile';
 
 interface Restaurant {
   id: string;
@@ -10,7 +12,8 @@ interface Restaurant {
   slogan: string;
   isActive: boolean;
   createdAt: string;
-  planType: string;
+  planId: string | null;
+  plan?: { name: string; code: string };
   subscriptionEndDate: string;
   ownerName: string | null;
   ownerPhone: string | null;
@@ -21,7 +24,10 @@ interface Restaurant {
 }
 
 export default function SuperAdminPage() {
+  const [activeMainTab, setActiveMainTab] = useState<'TENANTS'|'PLANS'|'PROFILE'>('TENANTS');
+  
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Creation Modal State
@@ -29,7 +35,7 @@ export default function SuperAdminPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tenantName, setTenantName] = useState('');
   const [tenantSlogan, setTenantSlogan] = useState('');
-  const [planType, setPlanType] = useState('BASIC');
+  const [planId, setPlanId] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
   const [adminName, setAdminName] = useState('');
@@ -43,7 +49,7 @@ export default function SuperAdminPage() {
   
   const [editTenantName, setEditTenantName] = useState('');
   const [editTenantSlogan, setEditTenantSlogan] = useState('');
-  const [editPlanType, setEditPlanType] = useState('BASIC');
+  const [editPlanId, setEditPlanId] = useState('');
   const [editOwnerName, setEditOwnerName] = useState('');
   const [editOwnerPhone, setEditOwnerPhone] = useState('');
   const [editSubEndDate, setEditSubEndDate] = useState('');
@@ -51,7 +57,34 @@ export default function SuperAdminPage() {
   const [editAdminEmail, setEditAdminEmail] = useState('');
   const [editAdminPassword, setEditAdminPassword] = useState('');
 
-  const fetchRestaurants = async () => {
+  const fetchInitialData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('pos_token');
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      const [resTenants, resPlans] = await Promise.all([
+        fetch('/api/v1/saas/restaurants', { headers }),
+        fetch('/api/v1/saas/plans', { headers })
+      ]);
+      
+      if (resTenants.ok) {
+        setRestaurants(await resTenants.json());
+      }
+      if (resPlans.ok) {
+        const plansData = await resPlans.json();
+        const activePlans = plansData.filter((p: any) => p.isActive);
+        setAvailablePlans(activePlans);
+        if (activePlans.length > 0) setPlanId(activePlans[0].id);
+      }
+    } catch {
+      toast.error('Error cargando inicial');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRestaurantsOnly = async () => {
     try {
       const token = localStorage.getItem('pos_token');
       const res = await fetch('/api/v1/saas/restaurants', {
@@ -61,14 +94,12 @@ export default function SuperAdminPage() {
         setRestaurants(await res.json());
       }
     } catch {
-      toast.error('Error cargando los restaurantes');
-    } finally {
-      setLoading(false);
+      // ignore
     }
-  };
+  }
 
   useEffect(() => {
-    fetchRestaurants();
+    fetchInitialData();
   }, []);
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
@@ -81,7 +112,7 @@ export default function SuperAdminPage() {
       });
       if (res.ok) {
         toast.success(`Restaurante ${!currentStatus ? 'Activado' : 'Suspendido'}`);
-        fetchRestaurants();
+        fetchRestaurantsOnly();
       }
     } catch {
       toast.error('Error cambiando el estado');
@@ -98,7 +129,7 @@ export default function SuperAdminPage() {
       });
       if (res.ok) {
         toast.success(`Suscripción renovada por ${days} días`);
-        fetchRestaurants();
+        fetchRestaurantsOnly();
       } else {
         toast.error('Error al renovar suscripción');
       }
@@ -109,6 +140,7 @@ export default function SuperAdminPage() {
 
   const handleCreateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!planId) return toast.error('Debes seleccionar un plan válido');
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('pos_token');
@@ -116,7 +148,7 @@ export default function SuperAdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ 
-           name: tenantName, slogan: tenantSlogan, planType, ownerName, ownerPhone
+           name: tenantName, slogan: tenantSlogan, planId, ownerName, ownerPhone
         })
       });
       
@@ -134,9 +166,10 @@ export default function SuperAdminPage() {
       toast.success('¡Nuevo Inquilino creado exitosamente!');
       setIsOpen(false);
       
-      setTenantName(''); setTenantSlogan(''); setOwnerName(''); setOwnerPhone(''); setPlanType('BASIC');
+      setTenantName(''); setTenantSlogan(''); setOwnerName(''); setOwnerPhone('');
+      if (availablePlans.length > 0) setPlanId(availablePlans[0].id);
       setAdminName(''); setAdminEmail(''); setAdminPassword('');
-      fetchRestaurants();
+      fetchRestaurantsOnly();
     } catch (err: any) {
       toast.error(err.message || 'Error en la operación');
     } finally {
@@ -148,7 +181,7 @@ export default function SuperAdminPage() {
     setEditingId(r.id);
     setEditTenantName(r.name);
     setEditTenantSlogan(r.slogan || '');
-    setEditPlanType(r.planType);
+    setEditPlanId(r.planId || '');
     setEditOwnerName(r.ownerName || '');
     setEditOwnerPhone(r.ownerPhone || '');
     
@@ -190,7 +223,7 @@ export default function SuperAdminPage() {
         body: JSON.stringify({ 
            name: editTenantName, 
            slogan: editTenantSlogan, 
-           planType: editPlanType, 
+           planId: editPlanId, 
            ownerName: editOwnerName, 
            ownerPhone: editOwnerPhone,
            subscriptionEndDate: editSubEndDate
@@ -206,7 +239,7 @@ export default function SuperAdminPage() {
       }
       toast.success('Datos actualizados correctamente');
       setIsEditOpen(false);
-      fetchRestaurants();
+      fetchRestaurantsOnly();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -251,6 +284,34 @@ export default function SuperAdminPage() {
   return (
     <div className="w-full h-full flex flex-col gap-6">
       
+      {/* NAVEGACIÓN SUPER ADMIN */}
+      <div className="flex px-1 gap-2 border-b border-slate-200">
+         <button 
+           onClick={() => setActiveMainTab('TENANTS')} 
+           className={`px-4 py-3 text-sm font-black flex items-center gap-2 border-b-2 transition-colors ${activeMainTab === 'TENANTS' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
+         >
+           <Building2 className="w-4 h-4" /> Inquilinos
+         </button>
+         <button 
+           onClick={() => setActiveMainTab('PLANS')} 
+           className={`px-4 py-3 text-sm font-black flex items-center gap-2 border-b-2 transition-colors ${activeMainTab === 'PLANS' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
+         >
+           <Crown className="w-4 h-4" /> Planes de Suscripción
+         </button>
+         <button 
+           onClick={() => setActiveMainTab('PROFILE')} 
+           className={`px-4 py-3 text-sm font-black flex items-center gap-2 border-b-2 transition-colors ${activeMainTab === 'PROFILE' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
+         >
+           <Settings className="w-4 h-4" /> Mi Perfil
+         </button>
+      </div>
+
+      {activeMainTab === 'PROFILE' && <SuperAdminProfile />}
+      
+      {activeMainTab === 'PLANS' && <PlansManager />}
+
+      {activeMainTab === 'TENANTS' && (
+      <>
       <div className="flex items-center justify-between">
          <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">Directorio de Inquilinos</h1>
@@ -270,6 +331,8 @@ export default function SuperAdminPage() {
         ) : restaurants.map(r => {
            const expired = isExpired(r.subscriptionEndDate);
            const daysL = daysRemaining(r.subscriptionEndDate);
+           const planName = r.plan?.name || r.plan?.code || 'SIN PLAN';
+           
            return (
            <div key={r.id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden">
               <div className={`absolute top-0 left-0 w-full h-1 ${expired ? 'bg-rose-500' : daysL < 5 ? 'bg-amber-400' : 'bg-emerald-500'}`} />
@@ -292,7 +355,7 @@ export default function SuperAdminPage() {
                      >
                        {r.isActive ? 'Activo' : 'Suspendido'}
                      </button>
-                     <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">PLAN {r.planType}</span>
+                     <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">PLAN {planName}</span>
                    </div>
                  </div>
               </div>
@@ -332,6 +395,8 @@ export default function SuperAdminPage() {
            </div>
         )})}
       </div>
+      </>
+      )}
 
       {/* MODAL: Alta de Inquilino */}
       {isOpen && (
@@ -361,11 +426,11 @@ export default function SuperAdminPage() {
                          <label className="text-xs font-bold text-slate-700 ml-1">Plan SaaS *</label>
                          <div className="relative">
                            <Crown className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-                           <select required value={planType} onChange={e => setPlanType(e.target.value)}
+                           <select required value={planId} onChange={e => setPlanId(e.target.value)}
                              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 text-sm font-medium outline-none appearance-none" >
-                             <option value="BASIC">Básico (Máx 3 Usuarios)</option>
-                             <option value="PRO">Profesional (Máx 10 Usuarios)</option>
-                             <option value="PREMIUM">Premium (Ilimitado)</option>
+                             {availablePlans.map(p => (
+                               <option key={p.id} value={p.id}>{p.name} (Max {p.maxUsers} Users) - S/ {p.price}</option>
+                             ))}
                            </select>
                          </div>
                        </div>
@@ -467,11 +532,11 @@ export default function SuperAdminPage() {
                      </div>
                      <div className="space-y-2">
                        <label className="text-xs font-bold text-slate-700 ml-1">Plan SaaS</label>
-                       <select required value={editPlanType} onChange={e => setEditPlanType(e.target.value)}
+                       <select required value={editPlanId} onChange={e => setEditPlanId(e.target.value)}
                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 text-sm font-medium outline-none">
-                         <option value="BASIC">Básico (Máx 3 Usuarios)</option>
-                         <option value="PRO">Profesional (Máx 10 Usuarios)</option>
-                         <option value="PREMIUM">Premium (Ilimitado)</option>
+                         {availablePlans.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                         ))}
                        </select>
                      </div>
                    </div>

@@ -1,0 +1,7 @@
+
+🖨️  POS Print Agent corriendo en http://localhost:4001
+   → GET  /health       — Estado del agente
+   → GET  /printers     — Listar impresoras disponibles
+   → POST /print/kitchen — Imprimir ticket de cocina
+   → POST /print/receipt — Imprimir recibo
+

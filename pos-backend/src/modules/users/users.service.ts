@@ -65,12 +65,15 @@ export class UsersService {
     if (exists) throw new BadRequestException('El correo ya está registrado');
 
     const restaurantId = this.cls.get('restaurantId');
-    const restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId } });
-    if (restaurant) {
+    const restaurant = await this.prisma.restaurant.findUnique({ 
+      where: { id: restaurantId },
+      include: { plan: true } 
+    });
+    if (restaurant && restaurant.plan) {
       const activeUsers = await this.prisma.user.count({ where: { isActive: true } });
-      const limit = restaurant.planType === 'BASIC' ? 3 : (restaurant.planType === 'PRO' ? 10 : 99999);
+      const limit = restaurant.plan.maxUsers;
       if (activeUsers >= limit) {
-        throw new ForbiddenException(`Límite de usuarios (${limit}) alcanzado para el plan ${restaurant.planType}. Mejore su plan para añadir más.`);
+        throw new ForbiddenException(`Límite de usuarios (${limit}) alcanzado para el plan ${restaurant.plan.name}. Mejore su plan para añadir más.`);
       }
     }
 
@@ -111,5 +114,25 @@ export class UsersService {
     if (!user) throw new NotFoundException('Usuario no encontrado');
     await this.prisma.user.update({ where: { id }, data: { isActive: false } });
     return { message: 'Usuario desactivado' };
+  }
+
+  async updateProfile(id: string, dto: { email?: string; password?: string }) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const data: any = {};
+    if (dto.email && dto.email !== user.email) {
+      const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      if (exists) throw new BadRequestException('El correo ya está en uso');
+      data.email = dto.email;
+    }
+    if (dto.password) {
+      data.password = await bcrypt.hash(dto.password, 10);
+    }
+
+    if (Object.keys(data).length === 0) return { message: 'No se enviaron cambios' };
+
+    const updated = await this.prisma.user.update({ where: { id }, data });
+    return { message: 'Perfil actualizado exitosamente', email: updated.email };
   }
 }

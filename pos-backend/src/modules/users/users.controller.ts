@@ -33,4 +33,12 @@ export class UsersController {
     if (!isAdmin(req)) return { error: 'Acceso denegado' };
     return this.usersService.deactivate(id);
   }
+
+  @Patch('profile/superadmin')
+  updateProfile(@Req() req: any, @Body() dto: { email?: string; password?: string }) {
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      return { error: 'Acceso denegado: Se requiere rol SUPER_ADMIN' };
+    }
+    return this.usersService.updateProfile(req.user.userId, dto);
+  }
 }

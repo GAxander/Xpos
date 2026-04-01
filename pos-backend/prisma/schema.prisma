@@ -370,10 +370,21 @@ model CashExpense {
 // CONFIGURACIÓN DEL RESTAURANTE (SINGLETON)
 // ==========================================
 
-enum PlanType {
-  BASIC
-  PRO
-  PREMIUM
+model SubscriptionPlan {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  code        String   @unique // 'BASIC', 'PRO', 'PREMIUM'
+  price       Decimal  @default(0.00) @db.Decimal(10, 2)
+  maxUsers    Int      @default(3)
+  features    String[] @default([])
+  isActive    Boolean  @default(true) @map("is_active")
+  
+  restaurants Restaurant[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("subscription_plans")
 }
 
 model Restaurant {
@@ -389,7 +400,8 @@ model Restaurant {
   logoUrl   String?  @map("logo_url") @db.Text  // base64 Data URL
   
   // Custom SaaS fields
-  planType            PlanType @default(BASIC) @map("plan_type")
+  planId              String?           @map("plan_id") @db.Uuid
+  plan                SubscriptionPlan? @relation(fields: [planId], references: [id])
   subscriptionEndDate DateTime @default(now()) @map("subscription_end_date")
   ownerName           String?  @map("owner_name")
   ownerPhone          String?  @map("owner_phone")

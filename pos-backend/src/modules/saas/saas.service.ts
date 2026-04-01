@@ -13,7 +13,7 @@ export class CreateRestaurantSaaS {
 
   @IsOptional()
   @IsString()
-  planType?: string;
+  planId?: string;
 
   @IsOptional()
   @IsString()
@@ -35,7 +35,7 @@ export class UpdateRestaurantSaaS {
 
   @IsOptional()
   @IsString()
-  planType?: string;
+  planId?: string;
 
   @IsOptional()
   @IsString()
@@ -68,6 +68,7 @@ export class SaasService {
     return this.prisma.restaurant.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
+        plan: true,
         _count: {
           select: { users: true, orders: true }
         }
@@ -83,7 +84,7 @@ export class SaasService {
       data: {
         name: dto.name,
         slogan: dto.slogan,
-        planType: (dto.planType as any) || 'BASIC',
+        planId: dto.planId,
         ownerName: dto.ownerName,
         ownerPhone: dto.ownerPhone,
         subscriptionEndDate: endDate,
@@ -151,7 +152,7 @@ export class SaasService {
       data: {
         name: dto.name,
         slogan: dto.slogan,
-        planType: dto.planType as any,
+        planId: dto.planId,
         ownerName: dto.ownerName,
         ownerPhone: dto.ownerPhone,
         subscriptionEndDate: dto.subscriptionEndDate ? new Date(dto.subscriptionEndDate) : undefined,
