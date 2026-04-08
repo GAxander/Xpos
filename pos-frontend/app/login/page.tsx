@@ -41,7 +41,7 @@ export default function LoginPage() {
 
   const fetchStaff = async (restId: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/restaurant/${restId}/staff`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/restaurant/${restId}/staff`);
       if (res.ok) {
         const data = await res.json();
         setStaff(data);
@@ -64,7 +64,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/login`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -104,7 +104,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/login/pin`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login/pin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: enteredPin, restaurantId, userId: selectedUser.id }),
