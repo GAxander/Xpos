@@ -43,7 +43,8 @@ export default function Sidebar() {
     const fetchConfig = async () => {
       try {
         const token = localStorage.getItem('pos_token');
-        const res = await fetch('http://localhost:3000/api/v1/restaurant-config', {
+        const base = process.env.NEXT_PUBLIC_API_URL;
+      const res = await fetch(`${base}/restaurant-config`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           cache: 'no-store',
         });

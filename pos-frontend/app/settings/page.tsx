@@ -1,4 +1,5 @@
 'use client';
+import { getApiUrl } from '@/utils/api';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -53,7 +54,7 @@ export default function SettingsPage() {
   const fetchConfig = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const res = await fetch('/api/v1/restaurant-config', {
+const res = await fetch(getApiUrl('/restaurant-config'), {
         headers: { 'Authorization': `Bearer ${token}` },
         cache: 'no-store'
       });
@@ -64,7 +65,7 @@ export default function SettingsPage() {
   const fetchZones = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('/api/v1/floor/zones', {
+const response = await fetch(getApiUrl('/floor/zones'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -84,7 +85,7 @@ export default function SettingsPage() {
     setIsSavingConfig(true);
     const token = localStorage.getItem('pos_token');
     try {
-      const res = await fetch('/api/v1/restaurant-config', {
+const res = await fetch(getApiUrl('/restaurant-config'), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -137,8 +138,8 @@ export default function SettingsPage() {
     const token = localStorage.getItem('pos_token');
     const isEditing = zoneForm.id !== '';
     const url = isEditing 
-      ? `/api/v1/floor/zone/${zoneForm.id}`
-      : '/api/v1/floor/zone';
+? getApiUrl(`/floor/zone/${zoneForm.id}`)
+      : getApiUrl('/floor/zone');
     const method = isEditing ? 'PATCH' : 'POST';
 
     try {
@@ -175,7 +176,7 @@ export default function SettingsPage() {
 
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`/api/v1/floor/zone/${id}`, {
+const response = await fetch(getApiUrl(`/floor/zone/${id}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -208,8 +209,8 @@ export default function SettingsPage() {
     const token = localStorage.getItem('pos_token');
     const isEditing = tableForm.id !== '';
     const url = isEditing 
-      ? `/api/v1/floor/table/${tableForm.id}`
-      : '/api/v1/floor/table';
+? getApiUrl(`/floor/table/${tableForm.id}`)
+      : getApiUrl('/floor/table');
     const method = isEditing ? 'PATCH' : 'POST';
     
     // Alfanumérico, así que se envía como String
@@ -250,7 +251,7 @@ export default function SettingsPage() {
 
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`/api/v1/floor/table/${id}`, {
+const response = await fetch(getApiUrl(`/floor/table/${id}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

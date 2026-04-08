@@ -1,4 +1,5 @@
 'use client';
+import { getApiUrl } from '@/utils/api';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -66,7 +67,7 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/users', {
+      const res = await fetch(getApiUrl('/users'), {
         headers: { Authorization: `Bearer ${token()}` },
       });
       if (res.status === 401) { router.push('/login'); return; }
@@ -102,8 +103,8 @@ export default function UsersPage() {
     setIsSaving(true);
     const isEditing = form.id !== '';
     const url = isEditing
-      ? `/api/v1/users/${form.id}`
-      : '/api/v1/users';
+      ? getApiUrl(`/users/${form.id}`)
+      : getApiUrl('/users');
     const method = isEditing ? 'PATCH' : 'POST';
 
     const body: any = { name: form.name, email: form.email, role: form.role, allowedViews: form.allowedViews };
@@ -133,7 +134,7 @@ export default function UsersPage() {
     const action = u.isActive ? 'desactivar' : 'activar';
     if (!confirm(`¿Estás seguro de ${action} al usuario ${u.name}?`)) return;
     try {
-      const res = await fetch(`/api/v1/users/${u.id}`, {
+      const res = await fetch(getApiUrl(`/users/${u.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
         body: JSON.stringify({ isActive: !u.isActive }),
