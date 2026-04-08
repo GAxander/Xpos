@@ -808,6 +808,51 @@ export default function CashRegisterPage() {
         </div>
       )}
 
+      {/* Modal Lista de Gastos */}
+      {showExpensesList && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><List className="text-rose-500" /> Detalle de Gastos</h2>
+              <button onClick={() => setShowExpensesList(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full"><X className="w-6 h-6" /></button>
+            </div>
+            
+            <div className="max-h-[50vh] overflow-y-auto pr-2">
+              {expenses.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 font-medium">No se han registrado gastos en este turno.</div>
+              ) : (
+                <ul className="space-y-3">
+                  {expenses.map((expense) => (
+                    <li key={expense.id} className="bg-white border border-slate-200 p-4 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group hover:border-rose-200 transition-colors">
+                      <div className="flex flex-col gap-1 max-w-full md:max-w-[60%]">
+                        <span className="font-bold text-slate-800">{expense.description}</span>
+                      </div>
+                      <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                        <p className="text-rose-600 font-black text-lg">S/ {expense.amount.toFixed(2)}</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => { setShowExpensesList(false); openEditExpense(expense); }} className="p-2 bg-slate-50 text-blue-600 hover:bg-blue-100 rounded-xl border border-slate-200 transition-colors" title="Editar">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteExpense(expense.id)} className="p-2 bg-slate-50 text-rose-600 hover:bg-rose-100 rounded-xl border border-slate-200 transition-colors" title="Eliminar">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {expenses.length > 0 && (
+              <div className="mt-6 bg-rose-50 rounded-2xl p-4 flex justify-between items-center border border-rose-100">
+                <span className="font-bold text-rose-800 uppercase tracking-widest text-sm">Total Gastos</span>
+                <span className="text-2xl font-black text-rose-600">S/ {report.totalExpenses.toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modal Confirmar Cierre */}
       {showCloseConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">

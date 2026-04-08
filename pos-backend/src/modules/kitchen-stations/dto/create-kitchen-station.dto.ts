@@ -10,6 +10,5 @@ export class CreateKitchenStationDto {
   colorHex?: string;
 
   @IsOptional()
-  @IsString()
-  printerName?: string;
+  printerName?: string | null;
 }

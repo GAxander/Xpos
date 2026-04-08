@@ -2,3 +2,41 @@
 2026-03-26 13:27:58 - Started 11468
 2026-03-31 19:02:33 - Starting D:\nodejs\node.exe  "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\node_modules\node-windows\lib\wrapper.js" --file "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\index.js" --scriptoptions= --log "POS Print Agent wrapper" --grow 0.25 --wait 1 --maxrestarts 5 --abortonerror n --stopparentfirst undefined
 2026-03-31 19:02:33 - Started 6172
+2026-04-01 20:46:31 - Stopping posprintagent.exe
+2026-04-01 20:46:31 - ProcessKill 6172
+2026-04-01 20:46:31 - Found child process: 6220 Name: conhost.exe
+2026-04-01 20:46:31 - Found child process: 8868 Name: node.exe
+2026-04-01 20:46:31 - Stopping process 6220
+2026-04-01 20:46:31 - Send SIGINT 6220
+2026-04-01 20:46:31 - SIGINT to 6220 failed - Killing as fallback
+2026-04-01 20:46:31 - Stopping process 8868
+2026-04-01 20:46:31 - Send SIGINT 8868
+2026-04-01 20:46:31 - SIGINT to 8868 failed - Killing as fallback
+2026-04-01 20:46:31 - Stopping process 6172
+2026-04-01 20:46:31 - Send SIGINT 6172
+2026-04-01 20:46:31 - SIGINT to 6172 failed - Killing as fallback
+2026-04-01 20:46:31 - Finished posprintagent.exe
+2026-04-01 20:46:32 - Starting D:\nodejs\node.exe  "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\node_modules\node-windows\lib\wrapper.js" --file "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\index.js" --scriptoptions= --log "POS Print Agent wrapper" --grow 0.25 --wait 1 --maxrestarts 5 --abortonerror n --stopparentfirst undefined
+2026-04-01 20:46:32 - Started 5988
+2026-04-01 20:47:49 - Stopping posprintagent.exe
+2026-04-01 20:47:49 - ProcessKill 5988
+2026-04-01 20:47:49 - Shutdown exception
+Message:Se está cerrando el sistema.
+
+Stacktrace:   en System.Runtime.InteropServices.Marshal.ThrowExceptionForHRInternal(Int32 errorCode, IntPtr errorInfo)
+   en System.Management.ManagementScope.InitializeGuts(Object o)
+   en System.Management.ManagementScope.Initialize()
+   en System.Management.ManagementObjectSearcher.Initialize()
+   en System.Management.ManagementObjectSearcher.Get()
+   en winsw.WrapperService.GetChildPids(Int32 pid)
+   en winsw.WrapperService.StopProcessAndChildren(Int32 pid)
+   en winsw.WrapperService.StopIt()
+   en winsw.WrapperService.OnShutdown()
+2026-04-01 20:48:29 - Starting D:\nodejs\node.exe  "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\node_modules\node-windows\lib\wrapper.js" --file "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\index.js" --scriptoptions= --log "POS Print Agent wrapper" --grow 0.25 --wait 1 --maxrestarts 5 --abortonerror n --stopparentfirst undefined
+2026-04-01 20:48:29 - Started 6064
+2026-04-04 13:33:00 - Starting D:\nodejs\node.exe  "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\node_modules\node-windows\lib\wrapper.js" --file "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\index.js" --scriptoptions= --log "POS Print Agent wrapper" --grow 0.25 --wait 1 --maxrestarts 5 --abortonerror n --stopparentfirst undefined
+2026-04-04 13:33:00 - Started 5920
+2026-04-06 19:12:58 - Starting D:\nodejs\node.exe  "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\node_modules\node-windows\lib\wrapper.js" --file "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\index.js" --scriptoptions= --log "POS Print Agent wrapper" --grow 0.25 --wait 1 --maxrestarts 5 --abortonerror n --stopparentfirst undefined
+2026-04-06 19:12:58 - Started 5160
+2026-04-07 10:26:54 - Starting D:\nodejs\node.exe  "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\node_modules\node-windows\lib\wrapper.js" --file "D:\proyectos\Saas Restaurant\Saas Restaurant\pos-print-agent\index.js" --scriptoptions= --log "POS Print Agent wrapper" --grow 0.25 --wait 1 --maxrestarts 5 --abortonerror n --stopparentfirst undefined
+2026-04-07 10:26:54 - Started 6080

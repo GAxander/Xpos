@@ -20,6 +20,7 @@ interface Product {
   categoryId: string;
   isActive: boolean;
   modifierGroups?: any[]; // To support combo triggering
+  stations?: { id: string; name: string; printerName?: string }[];
 }
 
 interface CartItem {
@@ -308,6 +309,57 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
 
       if (response.ok) {
         toast.success(activeOrderId ? 'Productos agregados al pedido ✅' : 'Pedido enviado a cocina ✅');
+        
+        // --- PRINT TO KITCHEN LOGIC ---
+        const printJobs = new Map<string, any[]>();
+
+        cart.forEach(cartItem => {
+          const product = products.find(p => p.id === cartItem.productId);
+          if (product && product.stations && product.stations.length > 0) {
+            product.stations.forEach(station => {
+              if (station.printerName) {
+                let itemsForPrinter = printJobs.get(station.printerName);
+                if (!itemsForPrinter) {
+                  itemsForPrinter = [];
+                  printJobs.set(station.printerName, itemsForPrinter);
+                }
+                itemsForPrinter.push({
+                  quantity: cartItem.quantity,
+                  name: cartItem.name,
+                  notes: cartItem.notes || ''
+                });
+              }
+            });
+          }
+        });
+
+        // Send print jobs to local agent
+        for (const [printerName, items] of printJobs.entries()) {
+          try {
+            const printRes = await fetch('http://localhost:4001/print/kitchen', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                printerName,
+                tableName: tableName || tableId.slice(0, 4),
+                time: new Date().toLocaleTimeString('es-PE'),
+                items,
+              })
+            }).catch(() => null);
+
+            if (!printRes) {
+              console.warn(`No se pudo conectar con el agente de impresión en el puerto 4001 para la impresora ${printerName}.`);
+              toast.error(`Print Agent no detectado al imprimir en ${printerName}`);
+            } else if (!printRes.ok) {
+              const errData = await printRes.json().catch(() => ({}));
+              toast.error(`Error imprimiendo en ${printerName}: ${errData.error || printRes.statusText}`);
+            }
+          } catch (printErr) {
+            console.error(`Error inesperado imprimiendo en ${printerName}:`, printErr);
+          }
+        }
+        // ------------------------------
+
         router.push('/');
       } else {
         const data = await response.json();

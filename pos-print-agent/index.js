@@ -31,9 +31,9 @@ app.get('/health', (req, res) => {
 // LISTAR IMPRESORAS DEL SISTEMA
 // ============================================
 app.get('/printers', (req, res) => {
-  // En Windows usamos PowerShell para obtener todas las impresoras instaladas (USB + Red)
+  // En Windows usamos PowerShell para obtener todas las impresoras y sus nombres compartidos
   const command = process.platform === 'win32'
-    ? `powershell -Command "Get-Printer | Select-Object -ExpandProperty Name"`
+    ? `powershell -Command "Get-Printer | Select-Object -Property Name, ShareName, Shared | ConvertTo-Json -Compress"`
     : `lpstat -a 2>/dev/null | awk '{print $1}'`; // Linux/Mac fallback
 
   exec(command, (error, stdout, stderr) => {
@@ -42,12 +42,26 @@ app.get('/printers', (req, res) => {
       return res.json({ printers: [], error: 'No se pudieron listar las impresoras' });
     }
 
-    const printers = stdout
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0 && !line.startsWith('--')); // Eliminar líneas vacías o encabezados
-
-    res.json({ printers });
+    try {
+      if (process.platform === 'win32') {
+        let parsed = JSON.parse(stdout);
+        if (!Array.isArray(parsed)) parsed = [parsed];
+        
+        // Retornamos el ShareName si la impresora está compartida.
+        // El agente local requiere el ShareName para conectarse mediante SMB (\\\\localhost\\ShareName).
+        const printers = parsed.map(p => (p.Shared && p.ShareName) ? p.ShareName : p.Name);
+        
+        // Hacemos un set para evitar repetidos por si acaso
+        const uniquePrinters = [...new Set(printers)];
+        return res.json({ printers: uniquePrinters });
+      } else {
+        const printers = stdout.split('\n').map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith('--'));
+        return res.json({ printers });
+      }
+    } catch (parseErr) {
+      console.error('Error parseando JSON de impresoras:', parseErr);
+      return res.json({ printers: [] });
+    }
   });
 });
 
