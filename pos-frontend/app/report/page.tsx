@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Calculator, DollarSign, CreditCard, Printer, Wallet, 
-  ArrowDownToLine, ReceiptText, Smartphone, TrendingDown, 
+import {
+  Calculator, DollarSign, CreditCard, Printer, Wallet,
+  ArrowDownToLine, ReceiptText, Smartphone, TrendingDown,
   PiggyBank, Plus, X, Edit2, Trash2, List, Heart, CheckCircle2, RefreshCw, History, Utensils, Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,13 +14,13 @@ import { useGuardedRoute } from '@/hooks/useGuardedRoute';
 interface Expense { id: string; amount: number; description: string; }
 interface TipDetail { id: string; table: string; amount: number; method: string; }
 interface SoldProduct { id: string; name: string; quantity: number; }
-interface OrderDetail { 
-  id: string; 
-  table: string; 
-  amount: number; 
-  tip: number; 
-  methods: string[]; 
-  payments: { id: string; method: string; amount: number }[]; 
+interface OrderDetail {
+  id: string;
+  table: string;
+  amount: number;
+  tip: number;
+  methods: string[];
+  payments: { id: string; method: string; amount: number }[];
   items?: { productId: string; name: string; quantity: number }[];
 }
 interface PastClosure {
@@ -35,22 +35,22 @@ export default function CashRegisterPage() {
   const router = useRouter();
   useGuardedRoute('caja');
   const [loading, setLoading] = useState(true);
-  
+
   const [isShiftOpen, setIsShiftOpen] = useState(false);
   const [report, setReport] = useState({
     shiftId: null as string | null,
     totalSales: 0,
     cash: 0,
     card: 0,
-    yapePlin: 0, 
+    yapePlin: 0,
     ticketCount: 0,
     openingCash: 0,
     totalExpenses: 0,
     expectedCashInDrawer: 0,
-    totalTips: 0,               
-    tipsDetail: [] as TipDetail[], 
+    totalTips: 0,
+    tipsDetail: [] as TipDetail[],
     ordersDetail: [] as OrderDetail[],
-    soldProducts: [] as SoldProduct[], 
+    soldProducts: [] as SoldProduct[],
     tipsBreakdown: { CASH: 0, CARD: 0, TRANSFER: 0 } as Record<string, number>
   });
 
@@ -62,24 +62,24 @@ export default function CashRegisterPage() {
   const [isEditingOpening, setIsEditingOpening] = useState(false);
   const [showExpensesList, setShowExpensesList] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [showTipsModal, setShowTipsModal] = useState(false); 
+  const [showTipsModal, setShowTipsModal] = useState(false);
   const [showOrdersModal, setShowOrdersModal] = useState(false);
-  const [showProductsModal, setShowProductsModal] = useState(false); 
+  const [showProductsModal, setShowProductsModal] = useState(false);
   const [showEditOrderModal, setShowEditOrderModal] = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false); 
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false); 
-  
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
   // Formularios y Filtros
   const [openingAmount, setOpeningAmount] = useState('');
   const [expenseForm, setExpenseForm] = useState({ id: '', amount: '', description: '' });
   const [closureNote, setClosureNote] = useState('');
   const [historyDateFilter, setHistoryDateFilter] = useState(''); // NUEVO: Filtro de fecha para historial
-  
-  const [editOrderForm, setEditOrderForm] = useState({ 
-    id: '', table: '', 
-    cashAmount: '', cardAmount: '', transferAmount: '', 
-    tip: '', tipMethod: 'CASH' 
+
+  const [editOrderForm, setEditOrderForm] = useState({
+    id: '', table: '',
+    cashAmount: '', cardAmount: '', transferAmount: '',
+    tip: '', tipMethod: 'CASH'
   });
 
   // 1. CARGAR DATOS 
@@ -117,13 +117,13 @@ export default function CashRegisterPage() {
 
       // Calcular platos VENDIDOS SOLO EN ESTE TURNO
       const productSalesMap: Record<string, SoldProduct> = {};
-      
+
       activeOrders.forEach(order => {
         if (order.items) {
           order.items.forEach(item => {
             if (!productSalesMap[item.productId]) {
-              productSalesMap[item.productId] = { 
-                id: item.productId, name: item.name, quantity: 0 
+              productSalesMap[item.productId] = {
+                id: item.productId, name: item.name, quantity: 0
               };
             }
             productSalesMap[item.productId].quantity += item.quantity;
@@ -134,8 +134,8 @@ export default function CashRegisterPage() {
       const activeProducts = Object.values(productSalesMap).sort((a, b) => b.quantity - a.quantity);
 
       let initCash = 0, initCard = 0, initTransfer = 0, initTotalSales = 0;
-      let tb = { CASH: 0, CARD: 0, TRANSFER: 0 }; 
-      
+      let tb = { CASH: 0, CARD: 0, TRANSFER: 0 };
+
       activeOrders.forEach(o => {
         initTotalSales += o.amount;
         o.payments.forEach(p => {
@@ -199,9 +199,9 @@ export default function CashRegisterPage() {
     e.preventDefault();
     const amount = Number(expenseForm.amount);
     let updated = [...expenses];
-    if (expenseForm.id) { updated = updated.map(exp => exp.id === expenseForm.id ? { ...exp, amount, description: expenseForm.description } : exp); } 
+    if (expenseForm.id) { updated = updated.map(exp => exp.id === expenseForm.id ? { ...exp, amount, description: expenseForm.description } : exp); }
     else { updated.push({ id: Date.now().toString(), amount, description: expenseForm.description }); }
-    
+
     const newTotal = updated.reduce((s, exp) => s + exp.amount, 0);
     const local = JSON.parse(localStorage.getItem('mock_cash_shift') || '{}');
     local.expenses = updated; localStorage.setItem('mock_cash_shift', JSON.stringify(local));
@@ -230,10 +230,10 @@ export default function CashRegisterPage() {
 
   const executeCloseRegister = async () => {
     handlePrint('detailed', closureNote, report, expenses);
-    
+
     const newHistoryRecord: PastClosure = {
       id: Date.now().toString(),
-      date: new Date().toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' }),
+      date: new Date().toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
       report: { ...report },
       expenses: [...expenses],
       closureNote
@@ -243,33 +243,33 @@ export default function CashRegisterPage() {
     setPastClosures([newHistoryRecord, ...currentHistory]);
 
     const currentClosedItems = JSON.parse(localStorage.getItem('pos_closed_items') || '[]');
-    const itemsToArchive = [ ...report.ordersDetail.map(o => o.id), ...report.tipsDetail.map(t => t.id) ];
+    const itemsToArchive = [...report.ordersDetail.map(o => o.id), ...report.tipsDetail.map(t => t.id)];
     localStorage.setItem('pos_closed_items', JSON.stringify([...currentClosedItems, ...itemsToArchive]));
 
-    localStorage.removeItem('mock_cash_shift'); 
+    localStorage.removeItem('mock_cash_shift');
     toast.success('Caja cerrada con éxito. Turno reseteado a cero.');
-    
-    setIsShiftOpen(false); 
-    setOpeningAmount(''); 
+
+    setIsShiftOpen(false);
+    setOpeningAmount('');
     setExpenses([]);
     setClosureNote('');
-    
+
     setReport({
-      shiftId: null, totalSales: 0, cash: 0, card: 0, yapePlin: 0, 
-      ticketCount: 0, openingCash: 0, totalExpenses: 0, expectedCashInDrawer: 0, totalTips: 0,               
+      shiftId: null, totalSales: 0, cash: 0, card: 0, yapePlin: 0,
+      ticketCount: 0, openingCash: 0, totalExpenses: 0, expectedCashInDrawer: 0, totalTips: 0,
       tipsDetail: [], ordersDetail: [], soldProducts: [],
       tipsBreakdown: { CASH: 0, CARD: 0, TRANSFER: 0 }
     });
-    
+
     setShowCloseConfirmModal(false);
-    setIsEditingOpening(false); 
-    setShowOpenModal(true); 
+    setIsEditingOpening(false);
+    setShowOpenModal(true);
   };
 
   // NUEVO: ELIMINAR CIERRE DEL HISTORIAL
   const handleDeleteClosure = (closureId: string) => {
     if (!confirm('¿Estás seguro de ELIMINAR este registro de cierre? Esta acción no se puede deshacer y borrará el historial de ese turno.')) return;
-    
+
     const updatedHistory = pastClosures.filter(c => c.id !== closureId);
     setPastClosures(updatedHistory);
     localStorage.setItem('pos_shift_history', JSON.stringify(updatedHistory));
@@ -323,9 +323,9 @@ export default function CashRegisterPage() {
       if (p.method === 'TRANSFER') t += p.amount;
     });
     const tipDetail = report.tipsDetail.find(td => td.table === order.table);
-    setEditOrderForm({ 
-      id: order.id, table: order.table, 
-      cashAmount: c > 0 ? c.toString() : '', cardAmount: cd > 0 ? cd.toString() : '', transferAmount: t > 0 ? t.toString() : '', 
+    setEditOrderForm({
+      id: order.id, table: order.table,
+      cashAmount: c > 0 ? c.toString() : '', cardAmount: cd > 0 ? cd.toString() : '', transferAmount: t > 0 ? t.toString() : '',
       tip: tipDetail ? tipDetail.amount.toString() : '', tipMethod: tipDetail ? tipDetail.method : (order.methods[0] || 'CASH')
     });
     setShowEditOrderModal(true);
@@ -372,8 +372,8 @@ export default function CashRegisterPage() {
       const diffTotalSales = newAmount - orderToEdit.amount;
       const diffTotalTips = newTip - (oldTipDetail ? oldTipDetail.amount : 0);
 
-      const newPayments = [];
-      const newMethods = [];
+      const newPayments: { id: string; method: string; amount: number }[] = [];
+      const newMethods: string[] = [];
       if (nCash > 0) { newPayments.push({ id: `p-c-${Date.now()}`, method: 'CASH', amount: nCash }); newMethods.push('CASH'); }
       if (nCard > 0) { newPayments.push({ id: `p-cd-${Date.now()}`, method: 'CARD', amount: nCard }); newMethods.push('CARD'); }
       if (nTrans > 0) { newPayments.push({ id: `p-t-${Date.now()}`, method: 'TRANSFER', amount: nTrans }); newMethods.push('TRANSFER'); }
@@ -389,7 +389,7 @@ export default function CashRegisterPage() {
           cash: prev.cash + diffCash,
           card: prev.card + diffCard,
           yapePlin: prev.yapePlin + diffTransfer,
-          expectedCashInDrawer: prev.expectedCashInDrawer + diffCash, 
+          expectedCashInDrawer: prev.expectedCashInDrawer + diffCash,
           ordersDetail: prev.ordersDetail.map(o => o.id === editOrderForm.id ? { ...o, amount: newAmount, tip: newTip, methods: newMethods, payments: newPayments } : o),
           tipsDetail: updatedTipsDetail,
           tipsBreakdown: updatedTipsBreakdown
@@ -404,7 +404,7 @@ export default function CashRegisterPage() {
   // SISTEMA DE IMPRESIÓN 
   // ==========================================
   const handlePrint = (type: 'summary' | 'detailed' | 'products', finalNote: string = closureNote, targetReport: any = report, targetExpenses: Expense[] = expenses) => {
-    const dateStr = new Date().toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
+    const dateStr = new Date().toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     let printHTML = `
       <style>
         @page { margin: 0; }
@@ -444,12 +444,12 @@ export default function CashRegisterPage() {
       const totalItems = targetReport.soldProducts?.reduce((sum: number, p: SoldProduct) => sum + p.quantity, 0) || 0;
       printHTML += `<div class="row bold" style="font-size: 15px;"><span>TOTAL ÍTEMS:</span> <span>${totalItems}</span></div>`;
       printHTML += `<div class="text-center text-xs" style="margin-top:15px;">--- Fin del Reporte ---</div>`;
-    } 
+    }
     else {
       const subtotalIngresos = targetReport.cash + targetReport.card + targetReport.yapePlin;
       const propinasTotales = targetReport.totalTips;
-      const totalVentasReales = targetReport.totalSales; 
-      
+      const totalVentasReales = targetReport.totalSales;
+
       printHTML += `
         <div class="text-center">
           <h2>CIERRE DE CAJA</h2>
@@ -539,10 +539,10 @@ export default function CashRegisterPage() {
   // LÓGICA DE FILTRO PARA HISTORIAL
   const filteredClosures = pastClosures.filter(closure => {
     if (!historyDateFilter) return true;
-    
+
     // historyDateFilter viene en formato YYYY-MM-DD
     const [year, month, day] = historyDateFilter.split('-');
-    
+
     // Convertimos para comparar con el string de fecha guardado ej: "19/03/2026, 10:00 PM"
     const paddedDay = day;
     const unpaddedDay = parseInt(day, 10).toString();
@@ -550,9 +550,9 @@ export default function CashRegisterPage() {
     const unpaddedMonth = parseInt(month, 10).toString();
 
     // Verificamos si la fecha guardada contiene alguna de las posibles combinaciones generadas
-    return closure.date.includes(`${paddedDay}/${paddedMonth}/${year}`) || 
-           closure.date.includes(`${unpaddedDay}/${unpaddedMonth}/${year}`) ||
-           closure.date.includes(`${paddedDay}-${paddedMonth}-${year}`);
+    return closure.date.includes(`${paddedDay}/${paddedMonth}/${year}`) ||
+      closure.date.includes(`${unpaddedDay}/${unpaddedMonth}/${year}`) ||
+      closure.date.includes(`${paddedDay}-${paddedMonth}-${year}`);
   });
 
   if (loading && !report.totalSales && !showOpenModal) return (
@@ -561,7 +561,7 @@ export default function CashRegisterPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-8 font-sans pb-24">
-      
+
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3"><Calculator className="text-emerald-600 w-8 h-8" /> Control y Cierre</h1>
@@ -576,7 +576,7 @@ export default function CashRegisterPage() {
           <button onClick={() => setShowHistoryModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-2xl font-bold transition-colors">
             <History className="w-5 h-5" /> Historial
           </button>
-          
+
           {!isShiftOpen ? (
             <button onClick={() => setShowOpenModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-2xl font-bold transition-colors shadow-lg shadow-emerald-200">
               <Wallet className="w-5 h-5" /> Abrir Turno
@@ -596,7 +596,7 @@ export default function CashRegisterPage() {
           <button onClick={openNewExpense} disabled={!isShiftOpen} className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-xl font-bold transition-colors disabled:opacity-50"><Plus className="w-4 h-4" /> Registrar Gasto</button>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group">
           <div>
@@ -608,7 +608,7 @@ export default function CashRegisterPage() {
           </div>
           <div className="bg-amber-50 p-4 rounded-2xl"><PiggyBank className="w-8 h-8 text-amber-500" /></div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1">Efectivo (+)</p>
@@ -630,7 +630,7 @@ export default function CashRegisterPage() {
 
       <h2 className="text-xl font-bold text-slate-800 mb-4 mt-8">Resumen de Ingresos</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        
+
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1">Ingresos Totales</p>
@@ -672,7 +672,7 @@ export default function CashRegisterPage() {
 
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between cursor-pointer hover:border-violet-300 transition-all group" onClick={() => setShowTipsModal(true)}>
           <div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">Propinas <List className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity"/></p>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">Propinas <List className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></p>
             <h3 className="text-2xl font-black text-violet-600">S/ {report.totalTips.toFixed(2)}</h3>
           </div>
           <div className="bg-violet-50 p-4 rounded-2xl"><Heart className="w-8 h-8 text-violet-500" /></div>
@@ -681,10 +681,10 @@ export default function CashRegisterPage() {
 
       <h2 className="text-xl font-bold text-slate-800 mb-4 mt-8">Resumen Operativo</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        
+
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between cursor-pointer hover:border-slate-300 transition-all group" onClick={() => setShowOrdersModal(true)}>
           <div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">Órdenes <List className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity"/></p>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">Órdenes <List className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></p>
             <h3 className="text-2xl font-black text-slate-800">{report.ticketCount} emitidas</h3>
           </div>
           <div className="bg-slate-50 p-4 rounded-2xl"><ReceiptText className="w-8 h-8 text-slate-600" /></div>
@@ -692,7 +692,7 @@ export default function CashRegisterPage() {
 
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between cursor-pointer hover:border-slate-300 transition-all group" onClick={() => setShowProductsModal(true)}>
           <div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">Platos <List className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity"/></p>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">Platos <List className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></p>
             <h3 className="text-2xl font-black text-slate-800">{report.soldProducts.reduce((sum, p) => sum + p.quantity, 0)} ítems</h3>
           </div>
           <div className="bg-orange-50 p-4 rounded-2xl"><Utensils className="w-8 h-8 text-orange-500" /></div>
@@ -720,8 +720,8 @@ export default function CashRegisterPage() {
             <div className="mb-4 flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
               <Calendar className="w-5 h-5 text-slate-400" />
               <span className="text-sm font-bold text-slate-600">Buscar por fecha:</span>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={historyDateFilter}
                 onChange={(e) => setHistoryDateFilter(e.target.value)}
                 className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -754,11 +754,11 @@ export default function CashRegisterPage() {
                         </div>
                         <div className="flex gap-2">
                           <button onClick={() => handlePrint('detailed', closure.closureNote, closure.report, closure.expenses)} className="p-3 bg-white text-blue-600 hover:bg-blue-50 rounded-xl border border-slate-200 flex items-center gap-2 font-bold text-sm" title="Imprimir Ticket">
-                            <Printer className="w-4 h-4" /> 
+                            <Printer className="w-4 h-4" />
                           </button>
                           {/* BOTÓN ELIMINAR */}
                           <button onClick={() => handleDeleteClosure(closure.id)} className="p-3 bg-white text-rose-500 hover:bg-rose-50 rounded-xl border border-slate-200 flex items-center gap-2 font-bold text-sm" title="Eliminar Registro">
-                            <Trash2 className="w-4 h-4" /> 
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -801,8 +801,8 @@ export default function CashRegisterPage() {
               )}
             </div>
             <div className="mt-6 bg-orange-50 rounded-2xl p-4 flex justify-between items-center border border-orange-100">
-               <span className="font-bold text-orange-800 uppercase tracking-widest text-sm">Total Ítems Vendidos</span>
-               <span className="text-2xl font-black text-orange-600">{report.soldProducts.reduce((sum, p) => sum + p.quantity, 0)}</span>
+              <span className="font-bold text-orange-800 uppercase tracking-widest text-sm">Total Ítems Vendidos</span>
+              <span className="text-2xl font-black text-orange-600">{report.soldProducts.reduce((sum, p) => sum + p.quantity, 0)}</span>
             </div>
           </div>
         </div>
@@ -816,7 +816,7 @@ export default function CashRegisterPage() {
               <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><List className="text-rose-500" /> Detalle de Gastos</h2>
               <button onClick={() => setShowExpensesList(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full"><X className="w-6 h-6" /></button>
             </div>
-            
+
             <div className="max-h-[50vh] overflow-y-auto pr-2">
               {expenses.length === 0 ? (
                 <div className="text-center py-10 text-slate-400 font-medium">No se han registrado gastos en este turno.</div>
@@ -894,7 +894,7 @@ export default function CashRegisterPage() {
                 <span>Cierre Detallado</span><span className="text-[10px] bg-emerald-200 text-emerald-800 px-2 py-1 rounded-md uppercase">Completo</span>
               </button>
               <button onClick={() => handlePrint('products')} className="w-full mt-2 py-3.5 px-5 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl font-bold text-orange-700 flex justify-between items-center transition-colors">
-                <span className="flex items-center gap-2"><Utensils className="w-4 h-4"/> Platos Vendidos</span><span className="text-[10px] bg-orange-200 text-orange-800 px-2 py-1 rounded-md uppercase">Cocina</span>
+                <span className="flex items-center gap-2"><Utensils className="w-4 h-4" /> Platos Vendidos</span><span className="text-[10px] bg-orange-200 text-orange-800 px-2 py-1 rounded-md uppercase">Cocina</span>
               </button>
             </div>
           </div>
@@ -963,47 +963,47 @@ export default function CashRegisterPage() {
               </div>
               <button onClick={() => setShowEditOrderModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full"><X className="w-6 h-6" /></button>
             </div>
-            
+
             <form onSubmit={handleSaveOrderEdit}>
               <div className="mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Pagos de la Cuenta (Venta Neta)</label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Wallet className="w-4 h-4 text-blue-400"/></div>
-                    <input type="number" step="0.10" placeholder="Efectivo" value={editOrderForm.cashAmount} onChange={(e) => setEditOrderForm({...editOrderForm, cashAmount: e.target.value})} className="w-full pl-9 pr-2 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500" />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Wallet className="w-4 h-4 text-blue-400" /></div>
+                    <input type="number" step="0.10" placeholder="Efectivo" value={editOrderForm.cashAmount} onChange={(e) => setEditOrderForm({ ...editOrderForm, cashAmount: e.target.value })} className="w-full pl-9 pr-2 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><CreditCard className="w-4 h-4 text-purple-400"/></div>
-                    <input type="number" step="0.10" placeholder="Tarjeta" value={editOrderForm.cardAmount} onChange={(e) => setEditOrderForm({...editOrderForm, cardAmount: e.target.value})} className="w-full pl-9 pr-2 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-purple-500" />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><CreditCard className="w-4 h-4 text-purple-400" /></div>
+                    <input type="number" step="0.10" placeholder="Tarjeta" value={editOrderForm.cardAmount} onChange={(e) => setEditOrderForm({ ...editOrderForm, cardAmount: e.target.value })} className="w-full pl-9 pr-2 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-purple-500" />
                   </div>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Smartphone className="w-4 h-4 text-sky-400"/></div>
-                    <input type="number" step="0.10" placeholder="Yape/Plin" value={editOrderForm.transferAmount} onChange={(e) => setEditOrderForm({...editOrderForm, transferAmount: e.target.value})} className="w-full pl-9 pr-2 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-sky-500" />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Smartphone className="w-4 h-4 text-sky-400" /></div>
+                    <input type="number" step="0.10" placeholder="Yape/Plin" value={editOrderForm.transferAmount} onChange={(e) => setEditOrderForm({ ...editOrderForm, transferAmount: e.target.value })} className="w-full pl-9 pr-2 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-sky-500" />
                   </div>
                 </div>
                 <p className="text-right text-xs font-bold text-slate-400 mt-3 flex justify-end gap-2 items-center">
                   TOTAL CUENTA: <span className="text-slate-800 text-lg">S/ {liveTotal.toFixed(2)}</span>
                 </p>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4 mb-8 bg-violet-50/50 p-4 rounded-2xl border border-violet-100">
                 <div>
                   <label className="block text-xs font-bold text-violet-500 uppercase tracking-wide mb-2 flex items-center gap-1">Propina <Heart className="w-3 h-3" /></label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span className="text-violet-400 font-bold">S/</span></div>
-                    <input type="number" step="0.10" placeholder="0.00" value={editOrderForm.tip} onChange={(e) => setEditOrderForm({...editOrderForm, tip: e.target.value})} className="w-full pl-8 pr-3 py-2.5 bg-white border border-violet-200 rounded-xl font-bold text-violet-800 focus:ring-2 focus:ring-violet-500" />
+                    <input type="number" step="0.10" placeholder="0.00" value={editOrderForm.tip} onChange={(e) => setEditOrderForm({ ...editOrderForm, tip: e.target.value })} className="w-full pl-8 pr-3 py-2.5 bg-white border border-violet-200 rounded-xl font-bold text-violet-800 focus:ring-2 focus:ring-violet-500" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-violet-500 uppercase tracking-wide mb-2">Método Propina</label>
-                  <select value={editOrderForm.tipMethod} onChange={(e) => setEditOrderForm({...editOrderForm, tipMethod: e.target.value})} className="w-full px-3 py-2.5 bg-white border border-violet-200 rounded-xl font-bold text-violet-800 focus:ring-2 focus:ring-violet-500 appearance-none">
+                  <select value={editOrderForm.tipMethod} onChange={(e) => setEditOrderForm({ ...editOrderForm, tipMethod: e.target.value })} className="w-full px-3 py-2.5 bg-white border border-violet-200 rounded-xl font-bold text-violet-800 focus:ring-2 focus:ring-violet-500 appearance-none">
                     <option value="CASH">Efectivo</option>
                     <option value="CARD">Tarjeta (POS)</option>
                     <option value="TRANSFER">Yape / Plin</option>
                   </select>
                 </div>
               </div>
-              
+
               <div className="flex gap-3">
                 <button type="button" onClick={() => setShowEditOrderModal(false)} className="flex-1 py-4 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">Cancelar</button>
                 <button type="submit" className="flex-1 py-4 font-black text-white bg-blue-600 rounded-xl hover:bg-blue-700 flex justify-center items-center gap-2 transition-colors">
@@ -1078,12 +1078,12 @@ export default function CashRegisterPage() {
                 <label className="block text-sm font-bold text-slate-700 mb-2">Monto Retirado (S/)</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-slate-400 font-bold">S/</span></div>
-                  <input type="number" step="0.10" required autoFocus value={expenseForm.amount} onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})} className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800" />
+                  <input type="number" step="0.10" required autoFocus value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800" />
                 </div>
               </div>
               <div className="mb-8">
                 <label className="block text-sm font-bold text-slate-700 mb-2">Motivo / Descripción</label>
-                <input type="text" required value={expenseForm.description} onChange={(e) => setExpenseForm({...expenseForm, description: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800" placeholder="Ej. Pago proveedor de hielo" />
+                <input type="text" required value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800" placeholder="Ej. Pago proveedor de hielo" />
               </div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => setShowExpenseModal(false)} className="flex-1 py-4 font-bold text-slate-600 bg-slate-100 rounded-xl">Cancelar</button>
