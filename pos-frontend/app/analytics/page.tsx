@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { toast } from 'sonner';
 import { useGuardedRoute } from '@/hooks/useGuardedRoute';
+import { getApiUrl } from '@/utils/api';
 
 interface KPI {
   totalRevenue: number;
@@ -46,7 +47,7 @@ export default function AnalyticsPage() {
     setLoading(true);
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch(`/api/v1/analytics?from=${from}&to=${to}`, {
+      const res = await fetch(getApiUrl(`/analytics?from=${from}&to=${to}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.status === 401) { router.push('/login'); return; }
