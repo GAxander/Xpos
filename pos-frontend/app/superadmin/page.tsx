@@ -100,8 +100,10 @@ export default function SuperAdminPage() {
   }
 
   useEffect(() => {
-    fetchInitialData();
-  }, []);
+    if (activeMainTab === 'TENANTS') {
+      fetchInitialData();
+    }
+  }, [activeMainTab]);
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
     try {
