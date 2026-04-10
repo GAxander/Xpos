@@ -62,8 +62,7 @@ export default function CategoriesPage() {
     
     const isEditing = formData.id !== '';
     const url = isEditing
-      ? `/api/v1/inventory/category/${formData.id}`
-      : '/api/v1/inventory/category';
+      ? getApiUrl(`/inventory/category/${formData.id}`) : getApiUrl(`/inventory/category`);
     
     const method = isEditing ? 'PATCH' : 'POST';
     

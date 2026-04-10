@@ -136,8 +136,7 @@ export default function InventoryPage() {
     
     const isEditing = formData.id !== '';
     const url = isEditing 
-      ? `/api/v1/products/${formData.id}` 
-      : '/api/v1/products';
+      ? getApiUrl(`/products/${formData.id}`) : getApiUrl(`/products`);
     
     const method = isEditing ? 'PATCH' : 'POST';
 

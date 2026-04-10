@@ -89,8 +89,7 @@ export default function KitchenStationsPage() {
     
     const isEditing = formData.id !== '';
     const url = isEditing
-      ? `/api/v1/kitchen-stations/${formData.id}`
-      : '/api/v1/kitchen-stations';
+      ? getApiUrl(`/kitchen-stations/${formData.id}`) : getApiUrl(`/kitchen-stations`);
     
     const method = isEditing ? 'PATCH' : 'POST';
     
