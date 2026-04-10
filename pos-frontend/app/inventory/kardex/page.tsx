@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LayoutGrid, ArrowLeft, Search, Loader2, AlertCircle, CalendarDays, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiUrl } from '@/utils/api';
 
 interface KardexRow {
   productId: string;
@@ -48,7 +49,7 @@ export default function KardexPage() {
       const token = localStorage.getItem('pos_token');
       if (!token) { router.push('/login'); return; }
       try {
-        const res = await fetch('/api/v1/products/kardex', {
+        const res = await fetch(getApiUrl('/products/kardex'), {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.status === 401) { router.push('/login'); return; }

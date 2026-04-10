@@ -18,7 +18,6 @@ const ALL_MENU_ITEMS = [
   { key: 'inventario',    name: 'Inventario',       icon: Package,         path: '/inventory' },
   { key: 'categorias',    name: 'Categorías',       icon: LayoutDashboard, path: '/inventory/categories' },
   { key: 'areas',         name: 'Áreas de Prep.',    icon: Flame,           path: '/inventory/stations' },
-  { key: 'kardex',        name: 'Kardex',            icon: ClipboardList,   path: '/inventory/kardex' },
   { key: 'analytics',     name: 'Reporte',          icon: BarChart3,       path: '/analytics' },
   { key: 'configuracion', name: 'Configuración',    icon: Settings,        path: '/settings' },
   { key: 'usuarios',      name: 'Usuarios',         icon: Users,           path: '/users' },
