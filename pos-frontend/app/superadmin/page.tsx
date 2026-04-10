@@ -88,7 +88,7 @@ export default function SuperAdminPage() {
   const fetchRestaurantsOnly = async () => {
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch('/api/v1/saas/restaurants', {
+      const res = await fetch(getApiUrl('/saas/restaurants'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {

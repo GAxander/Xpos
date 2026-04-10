@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Crown, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiUrl } from '../../../utils/api';
 
 export interface SubscriptionPlan {
   id: string;
@@ -31,7 +32,7 @@ export function PlansManager() {
   const fetchPlans = async () => {
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch('/api/v1/saas/plans', {
+      const res = await fetch(getApiUrl('/saas/plans'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -84,7 +85,7 @@ export function PlansManager() {
         isActive
       };
 
-      const url = editingId ? `/api/v1/saas/plans/${editingId}` : '/api/v1/saas/plans';
+      const url = editingId ? getApiUrl(`/saas/plans/${editingId}`) : getApiUrl('/saas/plans');
       const method = editingId ? 'PATCH' : 'POST';
 
       const res = await fetch(url, {
@@ -109,7 +110,7 @@ export function PlansManager() {
   const toggleStatus = async (id: string, current: boolean) => {
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch(`/api/v1/saas/plans/${id}/status`, {
+      const res = await fetch(getApiUrl(`/saas/plans/${id}/status`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ isActive: !current })
