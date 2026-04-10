@@ -1,4 +1,6 @@
 'use client';
+import { getApiUrl } from '@/utils/api';
+
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -122,7 +124,7 @@ export default function CocinaPage() {
     const token = localStorage.getItem('pos_token');
     if (!token) return router.push('/login');
     try {
-      const response = await fetch('/api/v1/orders/kitchen', {
+      const response = await fetch(getApiUrl('/orders/kitchen'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -199,7 +201,7 @@ export default function CocinaPage() {
 
     try {
       const token = localStorage.getItem('pos_token');
-      await fetch(`/api/v1/orders/${orderId}/items/${itemId}/serve`, {
+      await fetch(getApiUrl(`/orders/${orderId}/items/${itemId}/serve`), {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -227,7 +229,7 @@ export default function CocinaPage() {
 
     try {
       const token = localStorage.getItem('pos_token');
-      await fetch(`/api/v1/orders/${orderId}/items/${itemId}/unserve`, {
+      await fetch(getApiUrl(`/orders/${orderId}/items/${itemId}/unserve`), {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -254,7 +256,7 @@ export default function CocinaPage() {
 
     try {
       const token = localStorage.getItem('pos_token');
-      await fetch(`/api/v1/orders/${orderId}/serve`, {
+      await fetch(getApiUrl(`/orders/${orderId}/serve`), {
         method: 'PATCH',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -280,7 +282,7 @@ export default function CocinaPage() {
     const fetchStations = async () => {
       const token = localStorage.getItem('pos_token');
       try {
-        const response = await fetch('/api/v1/kitchen-stations', {
+        const response = await fetch(getApiUrl('/kitchen-stations'), {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) setStations(await response.json());

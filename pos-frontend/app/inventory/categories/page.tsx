@@ -1,4 +1,6 @@
 'use client';
+import { getApiUrl } from '@/utils/api';
+
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -28,7 +30,7 @@ export default function CategoriesPage() {
     const token = localStorage.getItem('pos_token');
     try {
       console.log("Fetching categories...");
-      const response = await fetch('/api/v1/inventory/categories', {
+      const response = await fetch(getApiUrl('/inventory/categories'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       console.log("Categories response status:", response.status);
@@ -98,7 +100,7 @@ export default function CategoriesPage() {
     
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`/api/v1/inventory/category/${id}`, {
+      const response = await fetch(getApiUrl(`/inventory/category/${id}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

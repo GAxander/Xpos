@@ -1,4 +1,6 @@
 'use client';
+import { getApiUrl } from '@/utils/api';
+
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -206,7 +208,7 @@ export default function Home() {
   const fetchZonas = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('/api/v1/floor/zones', {
+      const response = await fetch(getApiUrl('/floor/zones'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -267,7 +269,7 @@ export default function Home() {
 
     const token = localStorage.getItem('pos_token');
     try {
-      await fetch(`/api/v1/floor/table/${tableId}`, {
+      await fetch(getApiUrl(`/floor/table/${tableId}`), {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',

@@ -1,4 +1,6 @@
 'use client';
+import { getApiUrl } from '@/utils/api';
+
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -43,7 +45,7 @@ export default function KitchenStationsPage() {
   const fetchStations = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('/api/v1/kitchen-stations', {
+      const response = await fetch(getApiUrl('/kitchen-stations'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -128,7 +130,7 @@ export default function KitchenStationsPage() {
     
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`/api/v1/kitchen-stations/${id}`, {
+      const response = await fetch(getApiUrl(`/kitchen-stations/${id}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

@@ -1,4 +1,6 @@
 'use client';
+import { getApiUrl } from '@/utils/api';
+
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -75,7 +77,7 @@ export default function InventoryPage() {
   const fetchProducts = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('/api/v1/products', {
+      const response = await fetch(getApiUrl('/products'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -94,7 +96,7 @@ export default function InventoryPage() {
   const fetchCategories = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('/api/v1/inventory/categories', {
+      const response = await fetch(getApiUrl('/inventory/categories'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -109,7 +111,7 @@ export default function InventoryPage() {
   const fetchStations = async () => {
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch('/api/v1/kitchen-stations', {
+      const response = await fetch(getApiUrl('/kitchen-stations'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -188,7 +190,7 @@ export default function InventoryPage() {
     
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`/api/v1/products/${id}`, {
+      const response = await fetch(getApiUrl(`/products/${id}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -233,8 +235,7 @@ export default function InventoryPage() {
     setIsAdjusting(true);
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(
-        `/api/v1/products/${adjustingProduct.id}/stock`,
+      const response = await fetch(getApiUrl(`/products/${adjustingProduct.id}/stock`),
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -263,7 +264,7 @@ export default function InventoryPage() {
     setHistoryMovements([]);
     const token = localStorage.getItem('pos_token');
     try {
-      const res = await fetch(`/api/v1/products/${product.id}/stock-history`, {
+      const res = await fetch(getApiUrl(`/products/${product.id}/stock-history`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setHistoryMovements(await res.json());

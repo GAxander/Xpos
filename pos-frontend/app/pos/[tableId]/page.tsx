@@ -1,4 +1,6 @@
 'use client';
+import { getApiUrl } from '@/utils/api';
+
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
@@ -106,7 +108,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
   useEffect(() => {
     const cached = localStorage.getItem('pos_restaurant_config');
     if (cached) { try { setRestaurantConfig(JSON.parse(cached)); } catch { /**/ } }
-    fetch('/api/v1/restaurant-config')
+    fetch(getApiUrl('/restaurant-config'))
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) { setRestaurantConfig(d); localStorage.setItem('pos_restaurant_config', JSON.stringify(d)); } })
       .catch(() => { /**/ });
@@ -125,9 +127,9 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
         const headers = { 'Authorization': `Bearer ${token}` };
         
         const [categoriesRes, productsRes, activeOrderRes] = await Promise.all([
-          fetch('/api/v1/inventory/categories', { headers }),
-          fetch('/api/v1/products', { headers }),
-          fetch(`/api/v1/orders/table/${tableId}/active`, { headers })
+          fetch(getApiUrl('/inventory/categories'), { headers }),
+          fetch(getApiUrl('/products'), { headers }),
+          fetch(getApiUrl(`/orders/table/${tableId}/active`), { headers })
         ]);
 
         if (categoriesRes.ok && productsRes.ok) {
@@ -267,7 +269,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     try {
       let response;
       if (activeOrderId) {
-        response = await fetch(`/api/v1/orders/${activeOrderId}/items`, {
+        response = await fetch(getApiUrl(`/orders/${activeOrderId}/items`), {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -286,7 +288,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
           })
         });
       } else {
-        response = await fetch('/api/v1/orders', {
+        response = await fetch(getApiUrl('/orders'), {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -386,7 +388,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     setSubmitting(true);
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`/api/v1/orders/${activeOrderId}/items/${confirmAction.itemId}`, {
+      const response = await fetch(getApiUrl(`/orders/${activeOrderId}/items/${confirmAction.itemId}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -421,7 +423,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     setSubmitting(true);
     const token = localStorage.getItem('pos_token');
     try {
-      const response = await fetch(`/api/v1/orders/${activeOrderId}`, {
+      const response = await fetch(getApiUrl(`/orders/${activeOrderId}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -453,7 +455,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     setLoadingTables(true);
     try {
       const token = localStorage.getItem('pos_token');
-      const res = await fetch('/api/v1/floor/zones', {
+      const res = await fetch(getApiUrl('/floor/zones'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -481,7 +483,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     setSubmitting(true);
     try {
       const token = localStorage.getItem('pos_token');
-      const response = await fetch(`/api/v1/orders/${activeOrderId}/table`, {
+      const response = await fetch(getApiUrl(`/orders/${activeOrderId}/table`), {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ newTableId: selectedNewTableId })
@@ -524,7 +526,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     setSubmitting(true);
     try {
       const token = localStorage.getItem('pos_token');
-      const response = await fetch(`/api/v1/payments/${paymentId}`, {
+      const response = await fetch(getApiUrl(`/payments/${paymentId}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -569,14 +571,14 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
 
       if (editingPaymentId) {
         // Actualizar pago existente
-        response = await fetch(`/api/v1/payments/${editingPaymentId}`, {
+        response = await fetch(getApiUrl(`/payments/${editingPaymentId}`), {
           method: 'PATCH',
           headers,
           body: JSON.stringify(bodyPayload)
         });
       } else {
         // Crear nuevo pago
-        response = await fetch('/api/v1/payments', {
+        response = await fetch(getApiUrl('/payments'), {
           method: 'POST',
           headers,
           body: JSON.stringify(bodyPayload)
@@ -622,7 +624,7 @@ export default function PosTablePage({ params }: { params: Promise<{ tableId: st
     if (!activeOrderId) return;
     try {
       const token = localStorage.getItem('pos_token');
-      const response = await fetch(`/api/v1/orders/${activeOrderId}/items/${itemId}/notes`, {
+      const response = await fetch(getApiUrl(`/orders/${activeOrderId}/items/${itemId}/notes`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
